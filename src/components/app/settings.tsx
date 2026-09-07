@@ -5,6 +5,7 @@ import {
   RiCheckLine,
   RiGlobalLine,
   RiMoonLine,
+  RiSmartphoneLine,
   RiSunLine,
 } from "@remixicon/react";
 import { useAuth } from "@/lib/auth-context";
@@ -15,7 +16,7 @@ import { Flag, formatPhone } from "@/components/base/phone-input";
 import { cx } from "@/utils/cx";
 
 export function Settings({ onBack }: { onBack: () => void }) {
-  const { t, lang, setLang, toggles, setToggle } = useSettings();
+  const { t, lang, setLang, toggles, setToggle, isWideScreen } = useSettings();
   const { theme, toggle } = useTheme();
   const { user } = useAuth();
 
@@ -64,6 +65,21 @@ export function Settings({ onBack }: { onBack: () => void }) {
           >
             <Toggle on={theme === "dark"} onChange={toggle} label={t("darkMode")} />
           </Row>
+
+          {/* Only meaningful on a screen wide enough for the desktop layout. */}
+          {isWideScreen && (
+            <Row
+              label={t("mobileView")}
+              hint={t("mobileViewHint")}
+              icon={<RiSmartphoneLine className="size-5 text-muted" />}
+            >
+              <Toggle
+                on={toggles.mobileView}
+                onChange={(v) => setToggle("mobileView", v)}
+                label={t("mobileView")}
+              />
+            </Row>
+          )}
         </Section>
 
         {/* Notifications & privacy */}
@@ -129,17 +145,22 @@ function Section({
 
 function Row({
   label,
+  hint,
   icon,
   children,
 }: {
   label: string;
+  hint?: string;
   icon?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className="flex items-center gap-3 rounded-xl px-3 py-2.5">
       {icon}
-      <span className="flex-1 text-sm font-medium text-ink">{label}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-sm font-medium text-ink">{label}</span>
+        {hint && <span className="block text-xs text-muted">{hint}</span>}
+      </span>
       {children}
     </div>
   );

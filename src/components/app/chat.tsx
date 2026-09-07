@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   RiAddLine,
   RiArrowLeftLine,
+  RiArrowUpLine,
   RiCheckDoubleLine,
+  RiCloseLine,
   RiDownload2Line,
   RiFile3Line,
   RiFileTextLine,
   RiImageLine,
+  RiLock2Line,
   RiMicLine,
   RiMoreLine,
   RiPencilLine,
@@ -16,16 +19,16 @@ import {
   RiSearchLine,
   RiSendPlane2Fill,
   RiVideoOnLine,
+  RiVidiconLine,
 } from "@remixicon/react";
 import { Avatar } from "@/components/ui/avatar";
 import { useStore } from "@/lib/app-store";
-import { useT } from "@/lib/settings-context";
+import { useIsDesktop, useSound, useT } from "@/lib/settings-context";
 import {
   chatAvatar,
   chatOnline,
   chatTitle,
   PEOPLE,
-  type AudioAttachment,
   type Chat,
   type ChatMessage,
   type Person,
@@ -33,7 +36,15 @@ import {
 import { formatBytes } from "@/utils/image";
 import { cx } from "@/utils/cx";
 import { NewGroupDialog } from "./new-group-dialog";
-import { VoiceMessage, VoiceRecorder } from "./voice";
+import {
+  LevelMeter,
+  VideoMessage,
+  VoiceMessage,
+  formatTime,
+  useMediaRecorder,
+  type RecordKind,
+  type RecordingResult,
+} from "./voice";
 import type { CallKind } from "./call";
 
 /** Avatar for a chat row: one photo for DMs, a collage for groups. */
@@ -64,6 +75,7 @@ export function ChatView({
   onStartCall?: (name: string, avatar: string | undefined, kind: CallKind) => void;
 }) {
   const t = useT();
+  const isDesktop = useIsDesktop();
   const { chats, appendMessage, createGroup } = useStore();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -85,14 +97,12 @@ export function ChatView({
     );
   }, [chats, query]);
 
-  const now = () => new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-
   const send = (partial: Omit<ChatMessage, "id" | "from" | "time">) => {
     if (!active) return;
     appendMessage(active.id, {
       id: `s${Date.now()}${Math.random().toString(16).slice(2, 6)}`,
       from: "me",
-      time: now(),
+      time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       read: false,
       ...partial,
     });
@@ -109,8 +119,12 @@ export function ChatView({
       {/* Chat list — full width on mobile, a fixed rail on desktop */}
       <div
         className={cx(
-          "relative min-h-0 flex-col lg:flex lg:w-[340px] lg:shrink-0 lg:border-r lg:border-line",
-          active ? "hidden" : "flex w-full",
+          "relative min-h-0 flex-col",
+          isDesktop
+            ? "flex w-[340px] shrink-0 border-r border-line"
+            : active
+              ? "hidden"
+              : "flex w-full",
         )}
       >
         <div className="shrink-0 bg-surface px-4 pb-2 pt-1">
@@ -136,7 +150,9 @@ export function ChatView({
                   ? `📎 ${last.file.name}`
                   : last?.audio
                     ? `🎤 ${t("voiceMessage")}`
-                    : "");
+                    : last?.video
+                      ? `📹 ${t("videoMessage")}`
+                      : "");
             const mine = last?.from === "me";
             return (
               <button
@@ -144,7 +160,7 @@ export function ChatView({
                 onClick={() => setActiveId(chat.id)}
                 className={cx(
                   "flex w-full items-center gap-3 border-b border-line px-4 py-3 text-left transition hover:bg-surface-2/50",
-                  activeId === chat.id && "lg:bg-surface-2",
+                  isDesktop && activeId === chat.id && "bg-surface-2",
                 )}
               >
                 <ChatAvatar chat={chat} />
@@ -181,7 +197,7 @@ export function ChatView({
       </div>
 
       {/* Conversation */}
-      <div className={cx("min-w-0 flex-1", active ? "flex" : "hidden lg:flex")}>
+      <div className={cx("min-w-0 flex-1", active || isDesktop ? "flex" : "hidden")}>
         {active ? (
           <Conversation
             key={active.id}
@@ -198,9 +214,7 @@ export function ChatView({
         )}
       </div>
 
-      {newGroup && (
-        <NewGroupDialog onClose={() => setNewGroup(false)} onCreate={onCreateGroup} />
-      )}
+      {newGroup && <NewGroupDialog onClose={() => setNewGroup(false)} onCreate={onCreateGroup} />}
     </div>
   );
 }
@@ -217,8 +231,9 @@ function Conversation({
   onStartCall?: (name: string, avatar: string | undefined, kind: CallKind) => void;
 }) {
   const t = useT();
+  const isDesktop = useIsDesktop();
+  const sound = useSound();
   const [draft, setDraft] = useState("");
-  const [recording, setRecording] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -237,6 +252,7 @@ function Conversation({
     if (!text) return;
     onSend({ text });
     setDraft("");
+    sound("sent");
   };
 
   const openPicker = (accept: string) => {
@@ -255,8 +271,21 @@ function Conversation({
     others.forEach((f) =>
       onSend({ file: { name: f.name, size: formatBytes(f.size), url: URL.createObjectURL(f) } }),
     );
+    if (files.length) sound("sent");
     if (fileRef.current) fileRef.current.value = "";
   };
+
+  const onRecorded = useCallback(
+    (result: RecordingResult) => {
+      if (result.kind === "video") {
+        onSend({ video: { url: result.url, duration: result.duration } });
+      } else {
+        onSend({ audio: { url: result.url, duration: result.duration, peaks: result.peaks } });
+      }
+      sound("sent");
+    },
+    [onSend, sound],
+  );
 
   const subtitle =
     chat.kind === "group"
@@ -268,13 +297,15 @@ function Conversation({
   return (
     <div className="flex h-full w-full flex-col">
       <header className="flex shrink-0 items-center gap-2 border-b border-line bg-surface px-2 py-2.5">
-        <button
-          onClick={onBack}
-          aria-label={t("back")}
-          className="flex size-9 items-center justify-center rounded-full text-muted hover:bg-surface-3 lg:hidden"
-        >
-          <RiArrowLeftLine className="size-5" />
-        </button>
+        {!isDesktop && (
+          <button
+            onClick={onBack}
+            aria-label={t("back")}
+            className="flex size-9 items-center justify-center rounded-full text-muted hover:bg-surface-3"
+          >
+            <RiArrowLeftLine className="size-5" />
+          </button>
+        )}
         <ChatAvatar chat={chat} size={40} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-ink">{chatTitle(chat)}</p>
@@ -318,7 +349,6 @@ function Conversation({
           onChange={(e) => onFiles(e.target.files)}
         />
 
-        {/* Attachment menu */}
         {attachOpen && (
           <>
             <button
@@ -341,52 +371,222 @@ function Conversation({
           </>
         )}
 
-        {recording ? (
-          <VoiceRecorder
-            onCancel={() => setRecording(false)}
-            onSend={(audio: AudioAttachment) => {
-              onSend({ audio });
-              setRecording(false);
-            }}
-          />
-        ) : (
-          <div className="flex items-end gap-1.5 rounded-2xl bg-surface-2 px-2 py-1.5">
-            <ComposerIcon
-              label={t("photoOrVideo")}
-              onClick={() => setAttachOpen((v) => !v)}
-              active={attachOpen}
-            >
-              <RiAddLine className="size-5" />
-            </ComposerIcon>
-            <textarea
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  submit();
-                }
-              }}
-              rows={1}
-              placeholder={t("message")}
-              className="max-h-28 min-h-9 flex-1 resize-none bg-transparent py-1.5 text-sm text-ink outline-none placeholder:text-faint"
+        <Composer
+          draft={draft}
+          onDraft={setDraft}
+          onSubmit={submit}
+          onAttach={() => setAttachOpen((v) => !v)}
+          attachOpen={attachOpen}
+          onRecorded={onRecorded}
+        />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Message box with a press-and-hold recorder.
+ *
+ * A tap on the record button switches between voice and video message; holding
+ * it records, and sliding up past the threshold locks the recording so you can
+ * let go and keep talking.
+ */
+function Composer({
+  draft,
+  onDraft,
+  onSubmit,
+  onAttach,
+  attachOpen,
+  onRecorded,
+}: {
+  draft: string;
+  onDraft: (v: string) => void;
+  onSubmit: () => void;
+  onAttach: () => void;
+  attachOpen: boolean;
+  onRecorded: (result: RecordingResult) => void;
+}) {
+  const t = useT();
+  const sound = useSound();
+  const barsRef = useRef<(HTMLDivElement | null)[]>([]);
+  const { recording, seconds, error, stream, start, stop, cancel, setError } =
+    useMediaRecorder(barsRef);
+
+  const [mode, setMode] = useState<RecordKind>("audio");
+  const [locked, setLocked] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  const press = useRef<{ y: number; started: boolean } | null>(null);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (videoRef.current && stream) videoRef.current.srcObject = stream;
+  }, [stream]);
+
+  useEffect(() => () => { if (holdTimer.current) clearTimeout(holdTimer.current); }, []);
+
+  const finish = useCallback(
+    async (send: boolean) => {
+      setLocked(false);
+      if (!send) {
+        await cancel();
+        sound("recordStop");
+        return;
+      }
+      const result = await stop();
+      sound("recordStop");
+      // Ignore accidental taps that produced a fraction of a second.
+      if (result && result.duration >= 0.6) onRecorded(result);
+    },
+    [cancel, onRecorded, sound, stop],
+  );
+
+  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (recording) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    press.current = { y: e.clientY, started: false };
+    holdTimer.current = setTimeout(async () => {
+      if (!press.current) return;
+      press.current.started = true;
+      sound("recordStart");
+      const ok = await start(mode);
+      if (!ok) press.current = null;
+    }, 220);
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+    if (!press.current?.started || locked) return;
+    if (press.current.y - e.clientY > 60) setLocked(true);
+  };
+
+  const endPress = (send: boolean) => {
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+    const current = press.current;
+    press.current = null;
+    if (!current) return;
+
+    if (!current.started) {
+      // A quick tap flips between voice and video messages.
+      setMode((m) => (m === "audio" ? "video" : "audio"));
+      sound("toggle");
+      return;
+    }
+    if (locked) return; // keeps running until the user hits send or cancel
+    void finish(send);
+  };
+
+  if (error) {
+    return (
+      <div className="flex items-center gap-2 rounded-2xl bg-surface-2 px-3 py-2.5">
+        <RiMicLine className="size-5 shrink-0 text-danger" />
+        <p className="flex-1 text-xs text-muted">{error}</p>
+        <button
+          onClick={() => setError(null)}
+          aria-label={t("close")}
+          className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted hover:bg-surface-3"
+        >
+          <RiCloseLine className="size-5" />
+        </button>
+      </div>
+    );
+  }
+
+  if (recording) {
+    return (
+      <div className="flex flex-col gap-2">
+        {mode === "video" && (
+          <div className="flex justify-center">
+            <video
+              ref={videoRef}
+              autoPlay
+              muted
+              playsInline
+              className="size-32 scale-x-[-1] rounded-full object-cover ring-2 ring-accent"
             />
-            {draft.trim() ? (
-              <button
-                onClick={submit}
-                aria-label="Send"
-                className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-white transition hover:bg-accent-strong"
-              >
-                <RiSendPlane2Fill className="size-5" />
-              </button>
-            ) : (
-              <ComposerIcon label={t("voiceMessage")} onClick={() => setRecording(true)}>
-                <RiMicLine className="size-5" />
-              </ComposerIcon>
-            )}
           </div>
         )}
+
+        <div className="flex items-center gap-2 rounded-2xl bg-surface-2 px-2 py-1.5">
+          <button
+            onClick={() => void finish(false)}
+            aria-label={t("cancel")}
+            className="flex size-9 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-surface-3 hover:text-danger"
+          >
+            <RiCloseLine className="size-5" />
+          </button>
+
+          <span className="flex size-2 shrink-0 animate-pulse rounded-full bg-danger" aria-hidden />
+          <span className="w-11 shrink-0 font-mono text-xs text-muted">{formatTime(seconds)}</span>
+
+          <LevelMeter barsRef={barsRef} />
+
+          {locked ? (
+            <span className="flex shrink-0 items-center gap-1 text-xs font-medium text-accent">
+              <RiLock2Line className="size-4" />
+              {t("locked")}
+            </span>
+          ) : (
+            <span className="flex shrink-0 items-center gap-1 text-xs text-faint">
+              <RiArrowUpLine className="size-4 animate-bounce" />
+            </span>
+          )}
+
+          <button
+            onClick={() => void finish(true)}
+            aria-label="Send"
+            className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-white transition hover:bg-accent-strong"
+          >
+            <RiSendPlane2Fill className="size-5" />
+          </button>
+        </div>
+
+        {!locked && (
+          <p className="text-center text-[11px] text-faint">{t("holdToRecord")}</p>
+        )}
       </div>
+    );
+  }
+
+  return (
+    <div className="flex items-end gap-1.5 rounded-2xl bg-surface-2 px-2 py-1.5">
+      <ComposerIcon label={t("photoOrVideo")} onClick={onAttach} active={attachOpen}>
+        <RiAddLine className="size-5" />
+      </ComposerIcon>
+      <textarea
+        value={draft}
+        onChange={(e) => onDraft(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            onSubmit();
+          }
+        }}
+        rows={1}
+        placeholder={t("message")}
+        className="max-h-28 min-h-9 flex-1 resize-none bg-transparent py-1.5 text-sm text-ink outline-none placeholder:text-faint"
+      />
+      {draft.trim() ? (
+        <button
+          onClick={onSubmit}
+          aria-label="Send"
+          className="flex size-9 shrink-0 items-center justify-center rounded-full bg-accent text-white transition hover:bg-accent-strong"
+        >
+          <RiSendPlane2Fill className="size-5" />
+        </button>
+      ) : (
+        <button
+          type="button"
+          aria-label={mode === "audio" ? t("toVideoMode") : t("toVoiceMode")}
+          title={t("holdToRecord")}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={() => endPress(true)}
+          onPointerCancel={() => endPress(false)}
+          className="flex size-9 shrink-0 touch-none select-none items-center justify-center rounded-full text-faint transition hover:bg-surface-3 hover:text-accent active:scale-110 active:text-accent"
+        >
+          {mode === "audio" ? <RiMicLine className="size-5" /> : <RiVidiconLine className="size-5" />}
+        </button>
+      )}
     </div>
   );
 }
@@ -415,7 +615,7 @@ function Bubble({ message, isGroup }: { message: ChatMessage; isGroup: boolean }
   const mine = message.from === "me";
   const hasImages = !!message.images?.length;
   const author = isGroup && !mine ? PEOPLE.find((p) => p.id === message.authorId) : undefined;
-  const bare = hasImages || !!message.audio;
+  const bare = hasImages || !!message.audio || !!message.video;
 
   return (
     <div className={cx("flex", mine ? "justify-end" : "justify-start")}>
@@ -445,6 +645,7 @@ function Bubble({ message, isGroup }: { message: ChatMessage; isGroup: boolean }
         )}
 
         {message.audio && <VoiceMessage audio={message.audio} mine={mine} />}
+        {message.video && <VideoMessage video={message.video} mine={mine} />}
 
         {message.file && (
           <a

@@ -8,7 +8,6 @@ import {
   RiHome5Line,
   RiLogoutBoxRLine,
   RiMoonLine,
-  RiNotification3Line,
   RiSettings4Line,
   RiSunLine,
   RiUserSmileLine,
@@ -56,14 +55,13 @@ export function Sidebar({
   onOpenHistory: () => void;
   onOpenSettings: () => void;
   onSignOut: () => void;
-  unread: { notifications: number; chat: number };
+  unread: { chat: number };
 }) {
   const { theme, toggle } = useTheme();
   const t = useT();
 
   const rows: Row[] = [
     { key: "home", labelKey: "home", icon: RiHome5Line },
-    { key: "notifications", labelKey: "notifications", icon: RiNotification3Line, badge: unread.notifications },
     { key: "chat", labelKey: "messages", icon: RiChat3Line, badge: unread.chat },
     { key: "history", labelKey: "history", icon: RiHistoryLine },
     { key: "profile", labelKey: "profile", icon: RiUserSmileLine },
@@ -197,7 +195,8 @@ export function Sidebar({
   if (!open) return null;
 
   return (
-    <div className="absolute inset-0 z-40 lg:hidden">
+    // The shell only mounts the drawer on the phone layout, so no media query here.
+    <div className="absolute inset-0 z-40">
       <button
         aria-label={t("close")}
         onClick={onClose}

@@ -12,8 +12,13 @@ Messenger app styled like X (Twitter) + Telegram. Light-grey UI, Vion violet acc
   Shared app state (posts, chats, liked history) lives in `src/lib/app-store.tsx`.
 - UI strings go through `useT()` from `settings-context`; add new keys to the
   English dict in `src/lib/i18n.ts` first — other languages fall back to it.
-- Desktop layout kicks in at `lg`: the sidebar becomes a static rail and the chat
-  splits into list + conversation. Keep mobile-only chrome behind `lg:hidden`.
+- Layout is chosen in JS, not by `lg:` classes: `useIsDesktop()` from
+  settings-context is true only when the viewport is wide AND the "Mobile view"
+  switch is off. Branch on it instead of adding Tailwind breakpoints.
+- UI sounds are synthesised in `src/lib/sounds.ts` — no audio files. Play them
+  through `useSound()` so the Sound effects setting is honoured.
+- Accounts live on the @voidops.ru domain in `src/lib/accounts.ts` (localStorage,
+  SHA-256 password digest, no backend).
 - The demo SMS verification code is `123456`.
 - BoardUI Pro components are NOT installed (paid license + heavy internal deps);
   the equivalent UI is hand-built in the same style. Don't run `boardui add`.

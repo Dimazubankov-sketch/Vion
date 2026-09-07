@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import { emailFor, normalizeUsername } from "./accounts";
 
 export interface VionUser {
   name: string;
@@ -27,21 +28,15 @@ export interface VionUser {
 interface AuthValue {
   user: VionUser | null;
   ready: boolean;
-  /** Sign in with an email or a phone number — whichever the user gave. */
-  signIn: (identifier: { email?: string; phone?: string }) => void;
-  signUp: (name: string, email: string, phone: string) => void;
+  /** Drop straight into the app with an already-verified account. */
+  signIn: (account: { username: string; name: string; phone?: string }) => void;
+  signUp: (name: string, username: string, phone: string) => void;
   signOut: () => void;
   updateUser: (patch: Partial<VionUser>) => void;
 }
 
 const STORAGE_KEY = "vion.user";
 const AuthContext = createContext<AuthValue | null>(null);
-
-/** Derive an @handle from a name or email. */
-function handleFrom(seed: string) {
-  const base = seed.split("@")[0].replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
-  return base || "vionaut";
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<VionUser | null>(null);
@@ -76,15 +71,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(
-    ({ email, phone }: { email?: string; phone?: string }) => {
-      const seed = email ?? phone ?? "";
-      const name = email
-        ? email.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-        : "Vion User";
+    ({ username, name, phone }: { username: string; name: string; phone?: string }) => {
       persist({
-        name,
-        handle: handleFrom(seed),
-        email: email ?? "",
+        name: name || "Vion User",
+        handle: normalizeUsername(username),
+        email: emailFor(username),
         phone,
         following: 394,
         followers: 28300,
@@ -94,11 +85,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signUp = useCallback(
-    (name: string, email: string, phone: string) => {
+    (name: string, username: string, phone: string) => {
       persist({
         name: name || "Vion User",
-        handle: handleFrom(name || email),
-        email,
+        handle: normalizeUsername(username),
+        email: emailFor(username),
         phone,
         following: 0,
         followers: 0,

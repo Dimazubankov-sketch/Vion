@@ -107,6 +107,7 @@ export function PhoneInput({
   onCountryChange,
   placeholder = "(999) 000-0000",
   isDisabled,
+  isInvalid = false,
   hint,
   className,
 }: {
@@ -118,6 +119,7 @@ export function PhoneInput({
   onCountryChange?: (iso2: string) => void;
   placeholder?: string;
   isDisabled?: boolean;
+  isInvalid?: boolean;
   hint?: string;
   className?: string;
 }) {
@@ -134,11 +136,17 @@ export function PhoneInput({
 
   return (
     <div className={cx("flex flex-col gap-1.5", className)}>
-      {label && <label className="text-sm font-medium text-ink">{label}</label>}
+      {label && (
+        <label className={cx("text-sm font-medium", isInvalid ? "text-danger" : "text-ink")}>
+          {label}
+        </label>
+      )}
       <div
         className={cx(
-          "flex h-11 items-center gap-1.5 rounded-xl border border-line bg-surface-2 pl-2 pr-3.5 transition",
-          "focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/30",
+          "flex h-11 items-center gap-1.5 rounded-xl border pl-2 pr-3.5 transition",
+          isInvalid
+            ? "border-danger bg-danger/5 ring-2 ring-danger/25"
+            : "border-line bg-surface-2 focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/30",
           isDisabled && "opacity-60",
         )}
       >
@@ -158,7 +166,7 @@ export function PhoneInput({
           className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-faint"
         />
       </div>
-      {hint && <p className="text-xs text-faint">{hint}</p>}
+      {hint && <p className={cx("text-xs", isInvalid ? "text-danger" : "text-faint")}>{hint}</p>}
     </div>
   );
 }

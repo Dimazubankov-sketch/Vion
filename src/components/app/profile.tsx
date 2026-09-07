@@ -138,8 +138,8 @@ export function Profile({ user, onBack }: { user: VionUser; onBack: () => void }
           </div>
         </div>
 
-        {/* Posts / Reposts */}
-        <div className="sticky top-0 z-10 flex border-y border-line bg-surface/95 backdrop-blur">
+        {/* Posts / Reposts — no rule above or below, the active underline is enough */}
+        <div className="sticky top-0 z-10 flex bg-surface/95 backdrop-blur">
           {(["posts", "reposts"] as const).map((key) => (
             <button
               key={key}

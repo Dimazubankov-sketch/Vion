@@ -10,12 +10,22 @@ import {
   type ReactNode,
 } from "react";
 import { translate, type Lang, type TranslationKey } from "./i18n";
+import { playSound, type SoundName } from "./sounds";
 
 interface Toggles {
   push: boolean;
   sounds: boolean;
   readReceipts: boolean;
+  /** Force the phone layout even on a wide screen. */
+  mobileView: boolean;
 }
+
+const DEFAULT_TOGGLES: Toggles = {
+  push: true,
+  sounds: true,
+  readReceipts: true,
+  mobileView: false,
+};
 
 interface SettingsValue {
   lang: Lang;
@@ -23,6 +33,10 @@ interface SettingsValue {
   t: (key: TranslationKey) => string;
   toggles: Toggles;
   setToggle: (key: keyof Toggles, value: boolean) => void;
+  /** True when the wide layout should render (viewport is wide AND not forced to mobile). */
+  isDesktop: boolean;
+  /** True when the viewport itself is wide, regardless of the mobile-view switch. */
+  isWideScreen: boolean;
 }
 
 const STORAGE_KEY = "vion.settings";
@@ -30,23 +44,29 @@ const SettingsContext = createContext<SettingsValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>("en");
-  const [toggles, setToggles] = useState<Toggles>({
-    push: true,
-    sounds: true,
-    readReceipts: true,
-  });
+  const [toggles, setToggles] = useState<Toggles>(DEFAULT_TOGGLES);
+  const [isWideScreen, setIsWideScreen] = useState(false);
 
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
-        const saved = JSON.parse(raw) as { lang?: Lang; toggles?: Toggles };
+        const saved = JSON.parse(raw) as { lang?: Lang; toggles?: Partial<Toggles> };
         if (saved.lang) setLangState(saved.lang);
-        if (saved.toggles) setToggles(saved.toggles);
+        if (saved.toggles) setToggles({ ...DEFAULT_TOGGLES, ...saved.toggles });
       }
     } catch {
       /* ignore */
     }
+  }, []);
+
+  // Track the breakpoint in JS so the mobile-view switch can override it.
+  useEffect(() => {
+    const query = window.matchMedia("(min-width: 1024px)");
+    const sync = () => setIsWideScreen(query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
   }, []);
 
   const persist = useCallback((next: { lang: Lang; toggles: Toggles }) => {
@@ -77,8 +97,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const t = useCallback((key: TranslationKey) => translate(lang, key), [lang]);
 
   const value = useMemo(
-    () => ({ lang, setLang, t, toggles, setToggle }),
-    [lang, setLang, t, toggles, setToggle],
+    () => ({
+      lang,
+      setLang,
+      t,
+      toggles,
+      setToggle,
+      isDesktop: isWideScreen && !toggles.mobileView,
+      isWideScreen,
+    }),
+    [lang, setLang, t, toggles, setToggle, isWideScreen],
   );
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
@@ -93,4 +121,20 @@ export function useSettings() {
 /** Shorthand for components that only need the translator. */
 export function useT() {
   return useSettings().t;
+}
+
+/** Whether to render the wide (desktop) layout. */
+export function useIsDesktop() {
+  return useSettings().isDesktop;
+}
+
+/** Play a UI cue, honouring the "Sound effects" setting. */
+export function useSound() {
+  const { toggles } = useSettings();
+  return useCallback(
+    (name: SoundName) => {
+      if (toggles.sounds) playSound(name);
+    },
+    [toggles.sounds],
+  );
 }

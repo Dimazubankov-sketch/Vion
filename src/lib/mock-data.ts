@@ -16,6 +16,13 @@ export interface FileAttachment {
   url?: string;
 }
 
+/** A recorded round video message. */
+export interface VideoAttachment {
+  url: string;
+  /** Seconds. */
+  duration: number;
+}
+
 /** A recorded voice message. */
 export interface AudioAttachment {
   url: string;
@@ -34,6 +41,7 @@ export interface ChatMessage {
   images?: string[];
   file?: FileAttachment;
   audio?: AudioAttachment;
+  video?: VideoAttachment;
   time: string;
   read?: boolean;
 }
@@ -77,17 +85,6 @@ export interface Post {
   reposted?: boolean;
   /** Authored by the signed-in user — drives the profile's Posts tab. */
   mine?: boolean;
-}
-
-export type NotificationKind = "like" | "follow" | "reply" | "repost" | "mention";
-
-export interface AppNotification {
-  id: string;
-  kind: NotificationKind;
-  actor: Person;
-  text: string;
-  time: string;
-  unread?: boolean;
 }
 
 const avatar = (n: number) => `https://i.pravatar.cc/200?img=${n}`;
@@ -301,12 +298,3 @@ export const POSTS: Post[] = [
   },
 ];
 
-export const NOTIFICATIONS: AppNotification[] = [
-  { id: "n1", kind: "like", actor: PEOPLE[0], text: "liked your post", time: "2m", unread: true },
-  { id: "n2", kind: "follow", actor: PEOPLE[1], text: "started following you", time: "18m", unread: true },
-  { id: "n3", kind: "reply", actor: PEOPLE[3], text: "replied: “this is exactly what I needed 🙌”", time: "1h", unread: true },
-  { id: "n4", kind: "repost", actor: PEOPLE[5], text: "reposted your post", time: "3h" },
-  { id: "n5", kind: "mention", actor: PEOPLE[7], text: "mentioned you in a thread", time: "5h" },
-  { id: "n6", kind: "like", actor: PEOPLE[4], text: "and 87 others liked your reply", time: "1d" },
-  { id: "n7", kind: "follow", actor: PEOPLE[6], text: "started following you", time: "2d" },
-];

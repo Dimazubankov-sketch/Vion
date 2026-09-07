@@ -154,6 +154,26 @@ const en = {
   signingIn: "Signing you in...",
   configuring: "Configuring your account...",
   pleaseWait: "Please wait while we prepare everything for you",
+
+  // Added in the calls / layout pass
+  mobileView: "Mobile view",
+  mobileViewHint: "Use the phone layout on this screen",
+  videoMessage: "Video message",
+  toVoiceMode: "Switch to voice message",
+  toVideoMode: "Switch to video message",
+  holdToRecord: "Hold to record · slide up to lock",
+  recording: "Recording",
+  locked: "Locked",
+  minimize: "Minimise",
+  expand: "Expand",
+  fullscreen: "Fullscreen",
+  exitFullscreen: "Exit fullscreen",
+  swapView: "Swap view",
+  ongoingCall: "Ongoing call",
+  returnToCall: "Return to call",
+  username: "Username",
+  usernameTaken: "That username is already taken.",
+  signInFailed: "We couldn't find that account. Check the username and password.",
 };
 
 export type TranslationKey = keyof typeof en;
@@ -294,6 +314,25 @@ const ru: Dict = {
   signingIn: "Выполняем вход...",
   configuring: "Настраиваем ваш аккаунт...",
   pleaseWait: "Подождите, мы всё подготавливаем",
+
+  mobileView: "Мобильный вид",
+  mobileViewHint: "Телефонная раскладка на этом экране",
+  videoMessage: "Видеосообщение",
+  toVoiceMode: "Переключить на голосовое",
+  toVideoMode: "Переключить на видеосообщение",
+  holdToRecord: "Удерживайте для записи · потяните вверх, чтобы закрепить",
+  recording: "Запись",
+  locked: "Закреплено",
+  minimize: "Свернуть",
+  expand: "Развернуть",
+  fullscreen: "На весь экран",
+  exitFullscreen: "Выйти из полноэкранного",
+  swapView: "Поменять местами",
+  ongoingCall: "Идёт звонок",
+  returnToCall: "Вернуться к звонку",
+  username: "Имя пользователя",
+  usernameTaken: "Это имя уже занято.",
+  signInFailed: "Не нашли такой аккаунт. Проверьте имя и пароль.",
 };
 
 const es: Dict = {
@@ -424,6 +463,25 @@ const es: Dict = {
   signingIn: "Iniciando sesión...",
   configuring: "Configurando tu cuenta...",
   pleaseWait: "Espera mientras lo preparamos todo",
+
+  mobileView: "Vista móvil",
+  mobileViewHint: "Usar la disposición de teléfono en esta pantalla",
+  videoMessage: "Videomensaje",
+  toVoiceMode: "Cambiar a mensaje de voz",
+  toVideoMode: "Cambiar a videomensaje",
+  holdToRecord: "Mantén para grabar · desliza arriba para fijar",
+  recording: "Grabando",
+  locked: "Fijado",
+  minimize: "Minimizar",
+  expand: "Ampliar",
+  fullscreen: "Pantalla completa",
+  exitFullscreen: "Salir de pantalla completa",
+  swapView: "Intercambiar vista",
+  ongoingCall: "Llamada en curso",
+  returnToCall: "Volver a la llamada",
+  username: "Usuario",
+  usernameTaken: "Ese usuario ya está en uso.",
+  signInFailed: "No encontramos esa cuenta. Revisa el usuario y la contraseña.",
 };
 
 const de: Dict = {
@@ -554,6 +612,25 @@ const de: Dict = {
   signingIn: "Anmeldung läuft...",
   configuring: "Wir richten dein Konto ein...",
   pleaseWait: "Einen Moment, wir bereiten alles vor",
+
+  mobileView: "Mobile Ansicht",
+  mobileViewHint: "Handy-Layout auf diesem Bildschirm verwenden",
+  videoMessage: "Videonachricht",
+  toVoiceMode: "Zu Sprachnachricht wechseln",
+  toVideoMode: "Zu Videonachricht wechseln",
+  holdToRecord: "Halten zum Aufnehmen · nach oben ziehen zum Fixieren",
+  recording: "Aufnahme",
+  locked: "Fixiert",
+  minimize: "Minimieren",
+  expand: "Vergrößern",
+  fullscreen: "Vollbild",
+  exitFullscreen: "Vollbild beenden",
+  swapView: "Ansicht tauschen",
+  ongoingCall: "Laufender Anruf",
+  returnToCall: "Zurück zum Anruf",
+  username: "Benutzername",
+  usernameTaken: "Dieser Benutzername ist bereits vergeben.",
+  signInFailed: "Konto nicht gefunden. Prüfe Benutzername und Passwort.",
 };
 
 const fr: Dict = {
@@ -684,6 +761,25 @@ const fr: Dict = {
   signingIn: "Connexion en cours...",
   configuring: "Configuration de votre compte...",
   pleaseWait: "Patientez pendant que nous préparons tout",
+
+  mobileView: "Vue mobile",
+  mobileViewHint: "Utiliser la mise en page mobile sur cet écran",
+  videoMessage: "Message vidéo",
+  toVoiceMode: "Passer au message vocal",
+  toVideoMode: "Passer au message vidéo",
+  holdToRecord: "Maintenez pour enregistrer · glissez vers le haut pour verrouiller",
+  recording: "Enregistrement",
+  locked: "Verrouillé",
+  minimize: "Réduire",
+  expand: "Agrandir",
+  fullscreen: "Plein écran",
+  exitFullscreen: "Quitter le plein écran",
+  swapView: "Inverser la vue",
+  ongoingCall: "Appel en cours",
+  returnToCall: "Revenir à l'appel",
+  username: "Nom d'utilisateur",
+  usernameTaken: "Ce nom d'utilisateur est déjà pris.",
+  signInFailed: "Compte introuvable. Vérifiez le nom d'utilisateur et le mot de passe.",
 };
 
 export const DICTS: Record<Lang, Dict> = { en, ru, es, de, fr };

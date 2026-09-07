@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useT } from "@/lib/settings-context";
+import { useSound, useT } from "@/lib/settings-context";
 import { cx } from "@/utils/cx";
 
 /** Shared score strip shown above every board. */
@@ -45,6 +45,13 @@ function PlayAgain({ onClick }: { onClick: () => void }) {
 
 function Verdict({ state }: { state: "win" | "lose" | "draw" }) {
   const t = useT();
+  const sound = useSound();
+
+  useEffect(() => {
+    if (state === "win") sound("gameWin");
+    else if (state === "lose") sound("gameLose");
+  }, [state, sound]);
+
   return (
     <p
       className={cx(
