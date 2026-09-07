@@ -8,7 +8,13 @@ Messenger app styled like X (Twitter) + Telegram. Light-grey UI, Vion violet acc
 - Design tokens live in `src/app/globals.css` (`--canvas`, `--surface`, `--ink`,
   `--muted`, `--accent`, …). Dark theme swaps them under `.dark`. Prefer these
   utilities (`bg-surface`, `text-ink`, `bg-accent`) over hard-coded colors.
-- Auth + theme are client contexts persisted to `localStorage`; no backend.
+- Auth, theme and settings are client contexts persisted to `localStorage`; no backend.
+  Shared app state (posts, chats, liked history) lives in `src/lib/app-store.tsx`.
+- UI strings go through `useT()` from `settings-context`; add new keys to the
+  English dict in `src/lib/i18n.ts` first — other languages fall back to it.
+- Desktop layout kicks in at `lg`: the sidebar becomes a static rail and the chat
+  splits into list + conversation. Keep mobile-only chrome behind `lg:hidden`.
+- The demo SMS verification code is `123456`.
 - BoardUI Pro components are NOT installed (paid license + heavy internal deps);
   the equivalent UI is hand-built in the same style. Don't run `boardui add`.
 - Data is mocked in `src/lib/mock-data.ts`. Avatars/photos come from pravatar/picsum.

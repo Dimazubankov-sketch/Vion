@@ -14,16 +14,22 @@ export interface VionUser {
   name: string;
   handle: string;
   email: string;
+  phone?: string;
   avatar?: string;
   banner?: string;
   bio?: string;
+  location?: string;
+  website?: string;
+  following: number;
+  followers: number;
 }
 
 interface AuthValue {
   user: VionUser | null;
   ready: boolean;
-  signIn: (email: string) => void;
-  signUp: (name: string, email: string) => void;
+  /** Sign in with an email or a phone number — whichever the user gave. */
+  signIn: (identifier: { email?: string; phone?: string }) => void;
+  signUp: (name: string, email: string, phone: string) => void;
   signOut: () => void;
   updateUser: (patch: Partial<VionUser>) => void;
 }
@@ -44,7 +50,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setUser(JSON.parse(raw) as VionUser);
+      if (raw) {
+        // Sessions saved before these fields existed still need sane numbers.
+        const saved = JSON.parse(raw) as Partial<VionUser>;
+        setUser({
+          following: 394,
+          followers: 28300,
+          ...saved,
+        } as VionUser);
+      }
     } catch {
       /* ignore unavailable storage */
     }
@@ -62,16 +76,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = useCallback(
-    (email: string) => {
-      const name = email.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-      persist({ name: name || "Vion User", handle: handleFrom(email), email });
+    ({ email, phone }: { email?: string; phone?: string }) => {
+      const seed = email ?? phone ?? "";
+      const name = email
+        ? email.split("@")[0].replace(/[._-]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+        : "Vion User";
+      persist({
+        name,
+        handle: handleFrom(seed),
+        email: email ?? "",
+        phone,
+        following: 394,
+        followers: 28300,
+      });
     },
     [persist],
   );
 
   const signUp = useCallback(
-    (name: string, email: string) => {
-      persist({ name: name || "Vion User", handle: handleFrom(name || email), email });
+    (name: string, email: string, phone: string) => {
+      persist({
+        name: name || "Vion User",
+        handle: handleFrom(name || email),
+        email,
+        phone,
+        following: 0,
+        followers: 0,
+      });
     },
     [persist],
   );

@@ -3,6 +3,8 @@ import { Geist } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { ThemeProvider } from "@/lib/theme-context";
+import { SettingsProvider } from "@/lib/settings-context";
+import { AppStoreProvider } from "@/lib/app-store";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -37,7 +39,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-full">
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <SettingsProvider>
+            <AuthProvider>
+              <AppStoreProvider>{children}</AppStoreProvider>
+            </AuthProvider>
+          </SettingsProvider>
         </ThemeProvider>
       </body>
     </html>

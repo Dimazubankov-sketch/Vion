@@ -2,16 +2,22 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, Input, Label, TextField } from "react-aria-components";
-import { RiAppleFill, RiGithubFill, RiGoogleFill } from "@remixicon/react";
+import { RiAppleFill, RiArrowLeftLine, RiGithubFill, RiGoogleFill } from "@remixicon/react";
 import { useAuth } from "@/lib/auth-context";
+import { useT } from "@/lib/settings-context";
+import { InputOtp } from "@/components/base/input-otp";
+import { PhoneInput, formatPhone } from "@/components/base/phone-input";
 import { cx } from "@/utils/cx";
 
 export type AuthMode = "signin" | "signup";
 
+/** The demo verification code — no SMS gateway behind this build. */
+const DEMO_CODE = "123456";
+
 /**
- * Recreation of BoardUI's <AuthCard>. `logo` takes a node (your mark), so the
- * card owns layout, not the image source. Left-aligned by default; pass
- * `centered` to center the header. Auth is mocked via the local AuthProvider.
+ * Recreation of BoardUI's <AuthCard>. Sign-up collects both an email and a
+ * phone number; sign-in takes either one. A phone always goes through an SMS
+ * code step before the account is created or entered.
  */
 export function AuthCard({
   mode: modeProp,
@@ -28,113 +34,236 @@ export function AuthCard({
   title?: string;
   description?: string;
   className?: string;
-  /** Fired while the "configuring your account" beat is running. */
   onPendingChange?: (pending: boolean, mode: AuthMode) => void;
 }) {
   const { signIn, signUp } = useAuth();
+  const t = useT();
+
   const [mode, setMode] = useState<AuthMode>(modeProp ?? "signin");
+  /** Sign-in only: which identifier the user is typing. */
+  const [method, setMethod] = useState<"email" | "phone">("email");
+  const [step, setStep] = useState<"form" | "otp">("form");
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phone, setPhone] = useState("");
+  const [fullPhone, setFullPhone] = useState("");
+  const [code, setCode] = useState("");
+  const [codeInvalid, setCodeInvalid] = useState(false);
 
   const isSignup = mode === "signup";
-  const heading = title ?? (isSignup ? "Create your account" : "Sign in to Vion");
-  const sub =
-    description ??
-    (isSignup
-      ? "Start building your world on Vion in a couple of minutes."
-      : "Welcome back. Pick up right where you left off.");
+  const usesPhone = isSignup || method === "phone";
 
-  const canSubmit =
-    email.trim().length > 3 && password.length >= 8 && (!isSignup || name.trim().length > 1);
+  const heading = title ?? (isSignup ? t("signUpTitle") : t("signInTitle"));
+  const sub = description ?? (isSignup ? t("signUpSub") : t("signInSub"));
 
-  // Brief "configuring your account" beat before we drop the user into the app.
   const [pending, setPending] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
 
-  const submit = () => {
-    if (!canSubmit || pending) return;
+  const finish = () => {
     setPending(true);
     onPendingChange?.(true, mode);
     timer.current = setTimeout(() => {
-      if (isSignup) signUp(name.trim(), email.trim());
-      else signIn(email.trim());
+      if (isSignup) signUp(name.trim(), email.trim(), fullPhone);
+      else if (method === "phone") signIn({ phone: fullPhone });
+      else signIn({ email: email.trim() });
     }, 2600);
   };
 
-  // Stays mounted (so the timer survives) but hands the screen to the loader.
+  const canSubmitForm = isSignup
+    ? name.trim().length > 1 && email.trim().length > 3 && phone.length >= 6 && password.length >= 8
+    : method === "email"
+      ? email.trim().length > 3 && password.length >= 8
+      : phone.length >= 6;
+
+  const submitForm = () => {
+    if (!canSubmitForm || pending) return;
+    // Anything involving a phone number needs the SMS code first.
+    if (usesPhone) {
+      setCode("");
+      setCodeInvalid(false);
+      setStep("otp");
+    } else {
+      finish();
+    }
+  };
+
+  const verify = (entered: string) => {
+    if (entered === DEMO_CODE) finish();
+    else setCodeInvalid(true);
+  };
+
   if (pending) return null;
 
-  return (
+  const shell = (children: ReactNode) => (
     <div
       className={cx(
         "w-full max-w-md rounded-3xl border border-line bg-surface p-7 shadow-panel sm:p-9",
         className,
       )}
     >
+      {children}
+    </div>
+  );
+
+  // ---- Step 2: SMS code ----------------------------------------------------
+  if (step === "otp") {
+    return shell(
+      <>
+        <button
+          onClick={() => setStep("form")}
+          className="mb-4 flex items-center gap-1.5 text-sm font-medium text-muted transition hover:text-ink"
+        >
+          <RiArrowLeftLine className="size-4" />
+          {t("changeNumber")}
+        </button>
+
+        <div className={cx("flex flex-col gap-2", centered && "items-center text-center")}>
+          {logo && <div className="mb-3">{logo}</div>}
+          <h1 className="text-2xl font-bold tracking-tight text-ink">{t("verifyPhone")}</h1>
+          <p className="text-sm text-muted">
+            {t("verifyPhoneSub")} <span className="font-medium text-ink">{formatPhone(fullPhone)}</span>
+          </p>
+        </div>
+
+        <div className={cx("mt-7 flex flex-col gap-3", centered && "items-center")}>
+          <InputOtp
+            aria-label={t("verificationCode")}
+            groupEvery={3}
+            value={code}
+            onChange={(v) => {
+              setCode(v);
+              setCodeInvalid(false);
+            }}
+            onComplete={verify}
+            isInvalid={codeInvalid}
+          />
+          {codeInvalid && <p className="text-sm text-danger">{t("wrongCode")}</p>}
+        </div>
+
+        <button
+          onClick={() => verify(code)}
+          disabled={code.length < 6}
+          className="mt-6 h-11 w-full rounded-xl bg-accent text-sm font-semibold text-white transition hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          {t("verify")}
+        </button>
+
+        <button
+          onClick={() => {
+            setCode("");
+            setCodeInvalid(false);
+          }}
+          className="mt-3 w-full text-center text-sm font-medium text-accent hover:underline"
+        >
+          {t("resendCode")}
+        </button>
+      </>,
+    );
+  }
+
+  // ---- Step 1: credentials -------------------------------------------------
+  return shell(
+    <>
       <div className={cx("flex flex-col gap-2", centered && "items-center text-center")}>
         {logo && <div className="mb-3">{logo}</div>}
         <h1 className="text-2xl font-bold tracking-tight text-ink">{heading}</h1>
         <p className="text-sm text-muted">{sub}</p>
       </div>
 
+      {/* Sign-in lets you pick which identifier to use */}
+      {!isSignup && (
+        <div className="mt-6 flex gap-1 rounded-full bg-surface-2 p-1">
+          {(["email", "phone"] as const).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMethod(m)}
+              className={cx(
+                "flex-1 rounded-full py-2 text-sm font-medium transition",
+                method === m ? "bg-surface text-ink shadow-sm" : "text-muted hover:text-ink",
+              )}
+            >
+              {m === "email" ? t("useEmail") : t("usePhone")}
+            </button>
+          ))}
+        </div>
+      )}
+
       <form
-        className="mt-7 flex flex-col gap-4"
+        className="mt-5 flex flex-col gap-4"
         onSubmit={(e) => {
           e.preventDefault();
-          submit();
+          submitForm();
         }}
       >
         {isSignup && (
-          <Field label="Full name" placeholder="Ada Lovelace" value={name} onChange={setName} autoComplete="name" />
+          <Field label={t("fullName")} placeholder="Ada Lovelace" value={name} onChange={setName} autoComplete="name" />
         )}
-        <Field
-          label="Email"
-          type="email"
-          placeholder="you@company.com"
-          value={email}
-          onChange={setEmail}
-          autoComplete="email"
-          hint={isSignup ? "We'll use it to reach you and never share it." : undefined}
-        />
-        <Field
-          label="Password"
-          type="password"
-          placeholder="At least 8 characters"
-          value={password}
-          onChange={setPassword}
-          autoComplete={isSignup ? "new-password" : "current-password"}
-        />
 
-        {!isSignup && (
+        {(isSignup || method === "email") && (
+          <Field
+            label={t("email")}
+            type="email"
+            placeholder="you@company.com"
+            value={email}
+            onChange={setEmail}
+            autoComplete="email"
+            hint={isSignup ? t("emailHint") : undefined}
+          />
+        )}
+
+        {usesPhone && (
+          <PhoneInput
+            label={t("phoneNumber")}
+            value={phone}
+            onChange={(national, full) => {
+              setPhone(national);
+              setFullPhone(full);
+            }}
+          />
+        )}
+
+        {(isSignup || method === "email") && (
+          <Field
+            label={t("password")}
+            type="password"
+            placeholder="At least 8 characters"
+            value={password}
+            onChange={setPassword}
+            autoComplete={isSignup ? "new-password" : "current-password"}
+          />
+        )}
+
+        {!isSignup && method === "email" && (
           <div className="flex items-center justify-between text-sm">
             <label className="flex cursor-pointer items-center gap-2 text-muted">
               <input type="checkbox" defaultChecked className="accent-[var(--accent)]" />
-              Remember me
+              {t("rememberMe")}
             </label>
             <button type="button" className="font-medium text-accent hover:underline">
-              Forgot password?
+              {t("forgotPassword")}
             </button>
           </div>
         )}
 
         <Button
           type="submit"
-          isDisabled={!canSubmit}
+          isDisabled={!canSubmitForm}
           className={cx(
             "mt-1 flex h-11 w-full items-center justify-center rounded-xl bg-accent text-sm font-semibold text-white transition",
             "hover:bg-accent-strong data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50",
             "outline-none data-[focus-visible]:ring-2 data-[focus-visible]:ring-accent data-[focus-visible]:ring-offset-2 data-[focus-visible]:ring-offset-surface",
           )}
         >
-          {isSignup ? "Create account" : "Sign in"}
+          {isSignup ? t("createAccount") : t("signIn")}
         </Button>
       </form>
 
       <div className="my-6 flex items-center gap-3 text-xs text-faint">
         <span className="h-px flex-1 bg-line" />
-        or continue with
+        {t("orContinueWith")}
         <span className="h-px flex-1 bg-line" />
       </div>
 
@@ -145,16 +274,19 @@ export function AuthCard({
       </div>
 
       <p className="mt-6 text-center text-sm text-muted">
-        {isSignup ? "Already have an account? " : "New here? "}
+        {isSignup ? `${t("alreadyHaveAccount")} ` : `${t("newHere")} `}
         <button
           type="button"
-          onClick={() => setMode(isSignup ? "signin" : "signup")}
+          onClick={() => {
+            setMode(isSignup ? "signin" : "signup");
+            setStep("form");
+          }}
           className="font-semibold text-accent hover:underline"
         >
-          {isSignup ? "Sign in" : "Create account"}
+          {isSignup ? t("signIn") : t("createAccount")}
         </button>
       </p>
-    </div>
+    </>,
   );
 }
 

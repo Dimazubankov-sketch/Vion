@@ -73,6 +73,10 @@ export interface Post {
   shares: number;
   views: number;
   liked?: boolean;
+  /** Reposted by the signed-in user — drives the profile's Reposts tab. */
+  reposted?: boolean;
+  /** Authored by the signed-in user — drives the profile's Posts tab. */
+  mine?: boolean;
 }
 
 export type NotificationKind = "like" | "follow" | "reply" | "repost" | "mention";
@@ -268,6 +272,7 @@ export const POSTS: Post[] = [
     views: 88100,
     comments: [],
     liked: true,
+    reposted: true,
   },
   {
     id: "t4",
