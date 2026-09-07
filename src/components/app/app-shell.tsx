@@ -6,10 +6,8 @@ import {
   RiChat3Line,
   RiHome5Fill,
   RiHome5Line,
-  RiMenuLine,
   RiNotification3Fill,
   RiNotification3Line,
-  RiQuillPenLine,
 } from "@remixicon/react";
 import { Avatar } from "@/components/ui/avatar";
 import { VionWordmark } from "@/components/logo";
@@ -77,24 +75,6 @@ export function AppShell() {
             ) : (
               <h1 className="text-base font-bold text-ink">{TITLES[tab]}</h1>
             )}
-
-            <div className="ml-auto flex items-center gap-1">
-              {tab === "home" && (
-                <button
-                  aria-label="Compose"
-                  className="flex size-9 items-center justify-center rounded-full text-muted transition hover:bg-surface-3 hover:text-accent"
-                >
-                  <RiQuillPenLine className="size-5" />
-                </button>
-              )}
-              <button
-                onClick={() => setSidebarOpen(true)}
-                aria-label="Menu"
-                className="flex size-9 items-center justify-center rounded-full text-muted transition hover:bg-surface-3 hover:text-accent"
-              >
-                <RiMenuLine className="size-5" />
-              </button>
-            </div>
           </header>
         )}
 

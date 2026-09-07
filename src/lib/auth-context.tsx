@@ -15,6 +15,8 @@ export interface VionUser {
   handle: string;
   email: string;
   avatar?: string;
+  banner?: string;
+  bio?: string;
 }
 
 interface AuthValue {
@@ -23,6 +25,7 @@ interface AuthValue {
   signIn: (email: string) => void;
   signUp: (name: string, email: string) => void;
   signOut: () => void;
+  updateUser: (patch: Partial<VionUser>) => void;
 }
 
 const STORAGE_KEY = "vion.user";
@@ -75,9 +78,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(() => persist(null), [persist]);
 
+  const updateUser = useCallback(
+    (patch: Partial<VionUser>) =>
+      setUser((current) => {
+        if (!current) return current;
+        const next = { ...current, ...patch };
+        try {
+          window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        } catch {
+          /* ignore */
+        }
+        return next;
+      }),
+    [],
+  );
+
   const value = useMemo(
-    () => ({ user, ready, signIn, signUp, signOut }),
-    [user, ready, signIn, signUp, signOut],
+    () => ({ user, ready, signIn, signUp, signOut, updateUser }),
+    [user, ready, signIn, signUp, signOut, updateUser],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

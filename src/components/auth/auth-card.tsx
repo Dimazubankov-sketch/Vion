@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button, Input, Label, TextField } from "react-aria-components";
 import { RiAppleFill, RiGithubFill, RiGoogleFill } from "@remixicon/react";
 import { useAuth } from "@/lib/auth-context";
@@ -20,6 +20,7 @@ export function AuthCard({
   title,
   description,
   className,
+  onPendingChange,
 }: {
   mode?: AuthMode;
   centered?: boolean;
@@ -27,6 +28,8 @@ export function AuthCard({
   title?: string;
   description?: string;
   className?: string;
+  /** Fired while the "configuring your account" beat is running. */
+  onPendingChange?: (pending: boolean, mode: AuthMode) => void;
 }) {
   const { signIn, signUp } = useAuth();
   const [mode, setMode] = useState<AuthMode>(modeProp ?? "signin");
@@ -45,11 +48,23 @@ export function AuthCard({
   const canSubmit =
     email.trim().length > 3 && password.length >= 8 && (!isSignup || name.trim().length > 1);
 
+  // Brief "configuring your account" beat before we drop the user into the app.
+  const [pending, setPending] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+
   const submit = () => {
-    if (!canSubmit) return;
-    if (isSignup) signUp(name.trim(), email.trim());
-    else signIn(email.trim());
+    if (!canSubmit || pending) return;
+    setPending(true);
+    onPendingChange?.(true, mode);
+    timer.current = setTimeout(() => {
+      if (isSignup) signUp(name.trim(), email.trim());
+      else signIn(email.trim());
+    }, 2600);
   };
+
+  // Stays mounted (so the timer survives) but hands the screen to the loader.
+  if (pending) return null;
 
   return (
     <div
