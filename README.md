@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Vion
 
-## Getting Started
+Мессенджер в стиле X (Twitter) и Telegram. Светло-серый интерфейс, фиолетовый
+акцент Vion. Next.js 16 (App Router) + TypeScript + Tailwind v4 +
+`react-aria-components` + `@remixicon/react`.
 
-First, run the development server:
+## Запуск
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Открой http://localhost:3210 (порт задан в `.claude/launch.json`; обычный
+`next dev` поднимется на 3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Авторизация замокана: на экране входа введи любой email и пароль (8+ символов) —
+или зарегистрируйся. Сессия хранится в `localStorage`, «Sign out» — в боковом меню.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Структура
 
-## Learn More
+```
+src/
+  app/
+    layout.tsx            # провайдеры (тема, авторизация), метаданные, анти-flash темы
+    page.tsx              # гейт: экран входа или приложение
+    globals.css           # дизайн-токены (светлая/тёмная), анимации
+  lib/
+    auth-context.tsx      # мок-авторизация + localStorage
+    theme-context.tsx     # переключение светлая/тёмная тема
+    mock-data.ts          # контакты, чаты, лента, уведомления
+  components/
+    logo.tsx              # знак Vion (SVG-вертушка) + словесный знак
+    auth/
+      auth-card.tsx       # карточка входа/регистрации (аналог BoardUI <AuthCard>)
+      auth-screen.tsx     # экран авторизации
+    app/
+      app-shell.tsx       # оболочка: шапка, вкладки, нижняя навигация, оверлеи
+      feed.tsx            # лента (X-стиль)
+      notifications.tsx   # уведомления
+      chat.tsx            # список чатов + переписка (Telegram-стиль)
+      sidebar.tsx         # боковое меню (drawer)
+      profile.tsx         # профиль (баннер, статистика, тепловая карта активности)
+    ui/
+      avatar.tsx          # аватар с онлайн-точкой
+  utils/
+    cx.ts                 # clsx + tailwind-merge
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Навигация
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Нижняя панель** — 3 вкладки: Home (лента), Notifications, Messages (чат).
+- **Аватар слева вверху** (или иконка меню) → боковое меню.
+- В боковом меню **карточка пользователя** или пункт **Profile** → профиль.
+- В чате: поиск → список чатов → тап по чату открывает переписку (с отправкой).
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Заметки
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Компоненты BoardUI Pro (`AuthCard`, `DashboardSidebar`, `SettingsModal` и др.)
+  требуют платной лицензии Pro и тянут десятки внутренних зависимостей, поэтому
+  здесь они воссозданы самостоятельно в том же стиле — проект запускается без Pro.
+- Фирменный знак Vion — inline-SVG. Чтобы поставить официальный PNG, положи файл
+  в `/public` и замени `VionMark` в `src/components/logo.tsx`.
+- Аватары/фото — заглушки с `i.pravatar.cc` и `picsum.photos` (нужен интернет).

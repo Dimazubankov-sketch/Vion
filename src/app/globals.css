@@ -1,26 +1,119 @@
 @import "tailwindcss";
 
+/* ---------------------------------------------------------------------------
+   Vion design tokens
+   Light-grey app surface, Vion violet accent. Dark theme via .dark on <html>.
+--------------------------------------------------------------------------- */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --canvas: #ececed;          /* app background (light grey) */
+  --surface: #ffffff;         /* panels / cards */
+  --surface-2: #f5f5f7;       /* insets, inputs */
+  --surface-3: #ececef;       /* hover fills */
+  --line: #e4e4e8;            /* borders */
+  --ink: #17171b;             /* primary text */
+  --muted: #6a6a73;           /* secondary text */
+  --faint: #9a9aa3;           /* tertiary text */
+  --accent: #6c5cff;          /* Vion violet */
+  --accent-strong: #5847f0;
+  --accent-soft: #efedff;
+  --danger: #ef4444;
+  --online: #22c55e;
+}
+
+.dark {
+  --canvas: #0d0d10;
+  --surface: #17171b;
+  --surface-2: #1e1e24;
+  --surface-3: #262630;
+  --line: #2a2a32;
+  --ink: #f2f2f5;
+  --muted: #a0a0aa;
+  --faint: #70707a;
+  --accent: #7b6cff;
+  --accent-strong: #6b5cff;
+  --accent-soft: #201d3a;
+  --danger: #f87171;
+  --online: #34d399;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-strong: var(--accent-strong);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-online: var(--online);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --radius-xl2: 1.25rem;
+  --radius-3xl: 1.5rem;
+
+  --shadow-panel: 0 1px 2px rgba(16, 16, 22, 0.04), 0 8px 24px rgba(16, 16, 22, 0.06);
+  --shadow-float: 0 12px 40px rgba(16, 16, 22, 0.16);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+* {
+  border-color: var(--line);
+}
+
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Thin, unobtrusive scrollbars */
+.scroll-clean {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.scroll-clean::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.scroll-clean::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 999px;
+}
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Animations ------------------------------------------------------------- */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes pop-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.animate-fade-in { animation: fade-in 0.2s ease both; }
+.animate-slide-in-left { animation: slide-in-left 0.28s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.animate-pop-in { animation: pop-in 0.24s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; }
 }
