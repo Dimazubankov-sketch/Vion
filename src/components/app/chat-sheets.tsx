@@ -126,8 +126,6 @@ export function ChatMoreSheet({
 
   return (
     <Sheet title={chatTitle(chat)} onClose={onClose}>
-      <Row icon={<RiImage2Line className="size-5 text-muted" />} label={t("photoOrVideo")} hint="—" />
-
       <Row
         icon={<RiTimer2Line className="size-5 text-muted" />}
         label={t("disappearing")}

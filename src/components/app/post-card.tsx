@@ -1,8 +1,10 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   RiAddLine,
+  RiArrowLeftLine,
   RiChat1Line,
   RiCloseLine,
   RiExternalLinkLine,
@@ -58,45 +60,16 @@ function usePersonOpener() {
 
 export function PostCard({ post }: { post: Post }) {
   const { user } = useAuth();
-  const { toggleLike, addComment, toggleCommentLike, votePoll, hidePost } = useStore();
+  const { toggleLike, votePoll, hidePost } = useStore();
   const t = useT();
   const openPerson = usePersonOpener();
   const [open, setOpen] = useState(false);
-  const [sort, setSort] = useState<SortOrder>("top");
-  const [replyTo, setReplyTo] = useState<PostComment | null>(null);
-  // Threads stay one level deep, so a reply always attaches to the root comment.
-  const [replyRootId, setReplyRootId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [reposting, setReposting] = useState(false);
   const [viewer, setViewer] = useState<number | null>(null);
 
   const isMe = post.author.handle === user?.handle;
   const total = countComments(post.comments);
-
-  const sorted = useMemo(() => {
-    const list = [...post.comments];
-    if (sort === "new") list.sort((a, b) => b.createdAt - a.createdAt);
-    else list.sort((a, b) => b.likes - a.likes || b.createdAt - a.createdAt);
-    return list;
-  }, [post.comments, sort]);
-
-  const makeComment = (draft: CommentDraft): PostComment => ({
-    id: uid("c"),
-    author: { id: "me", name: user?.name ?? "You", handle: user?.handle ?? "you", avatar: user?.avatar ?? "" },
-    text: draft.text,
-    time: "now",
-    createdAt: Date.now(),
-    likes: 0,
-    images: draft.images.length ? draft.images : undefined,
-    file: draft.file,
-    link: draft.link,
-  });
-
-  const submitComment = (draft: CommentDraft) => {
-    addComment(post.id, makeComment(draft), replyRootId ?? undefined);
-    setReplyTo(null);
-    setReplyRootId(null);
-  };
 
   return (
     <article className="overflow-hidden rounded-2xl border border-line bg-surface shadow-panel">
@@ -184,7 +157,7 @@ export function PostCard({ post }: { post: Post }) {
         <div className="flex items-center justify-center py-3">
           <LikeButton liked={!!post.liked} onToggle={() => toggleLike(post.id)} aria-label={t("like")} />
         </div>
-        <ActionButton active={open} onClick={() => setOpen((v) => !v)} icon={<RiChat1Line className="size-5" />} label={`${total} ${t("comments")}`} />
+        <ActionButton active={open} onClick={() => setOpen(true)} icon={<RiChat1Line className="size-5" />} label={`${total} ${t("comments")}`} />
         <ActionButton
           active={post.reposted}
           activeClass="text-online"
@@ -194,64 +167,7 @@ export function PostCard({ post }: { post: Post }) {
         />
       </div>
 
-      {/* Comments */}
-      {open && (
-        <div className="border-t border-line bg-surface-2/50 p-4 animate-fade-in">
-          {post.comments.length > 0 && (
-            <div className="mb-3 flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted">{total} {t("comments")}</span>
-              <div className="flex gap-0.5 rounded-full bg-surface p-0.5">
-                {(["top", "new"] as const).map((key) => (
-                  <button
-                    key={key}
-                    onClick={() => setSort(key)}
-                    className={cx("rounded-full px-3 py-1 text-xs font-medium transition", sort === key ? "bg-accent text-white" : "text-muted hover:text-ink")}
-                  >
-                    {key === "top" ? t("sortTop") : t("sortNew")}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-3">
-            {sorted.map((c) => (
-              <CommentRow
-                key={c.id}
-                comment={c}
-                sort={sort}
-                onReply={(target, rootId) => {
-                  setReplyTo(target);
-                  setReplyRootId(rootId);
-                }}
-                onLike={(id) => toggleCommentLike(post.id, id)}
-                onOpenPerson={openPerson}
-              />
-            ))}
-            {post.comments.length === 0 && <p className="text-center text-sm text-faint">{t("noComments")}</p>}
-          </div>
-
-          {/* Single composer at the bottom, with a reply indicator */}
-          <div className="mt-3">
-            {replyTo && (
-              <div className="mb-2 flex items-center gap-2 rounded-xl bg-surface px-3 py-1.5">
-                <span className="flex-1 truncate text-xs text-muted">
-                  {t("replyingTo")} <span className="font-medium text-ink">{replyTo.author.name}</span>
-                </span>
-                <button onClick={() => setReplyTo(null)} aria-label={t("cancel")} className="text-muted">
-                  <RiCloseLine className="size-4" />
-                </button>
-              </div>
-            )}
-            <CommentComposer
-              key={replyTo?.id ?? "root"}
-              autoFocus={!!replyTo}
-              placeholder={replyTo ? `${t("reply")} ${replyTo.author.name}...` : t("writeComment")}
-              onSubmit={submitComment}
-            />
-          </div>
-        </div>
-      )}
+      {open && <CommentsScreen post={post} onClose={() => setOpen(false)} />}
 
       {reposting && <PostComposerDialog repostOf={post} onClose={() => setReposting(false)} />}
 
@@ -264,6 +180,153 @@ export function PostCard({ post }: { post: Post }) {
         />
       )}
     </article>
+  );
+}
+
+/**
+ * Full-screen comments, opened from a post. Back arrow at the top, the comment
+ * list scrolls, and the composer is pinned to the bottom so it never moves.
+ */
+function CommentsScreen({ post, onClose }: { post: Post; onClose: () => void }) {
+  const t = useT();
+  const { user } = useAuth();
+  const { addComment, toggleCommentLike } = useStore();
+  const openPerson = usePersonOpener();
+
+  const [sort, setSort] = useState<SortOrder>("top");
+  const [replyTo, setReplyTo] = useState<PostComment | null>(null);
+  // Threads stay one level deep, so a reply always attaches to the root comment.
+  const [replyRootId, setReplyRootId] = useState<string | null>(null);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const total = countComments(post.comments);
+  const sorted = useMemo(() => {
+    const list = [...post.comments];
+    if (sort === "new") list.sort((a, b) => b.createdAt - a.createdAt);
+    else list.sort((a, b) => b.likes - a.likes || b.createdAt - a.createdAt);
+    return list;
+  }, [post.comments, sort]);
+
+  const makeComment = (draft: CommentDraft): PostComment => ({
+    id: uid("c"),
+    author: { id: "me", name: user?.name ?? "You", handle: user?.handle ?? "you", avatar: user?.avatar ?? "" },
+    text: draft.text,
+    time: "now",
+    createdAt: Date.now(),
+    likes: 0,
+    images: draft.images.length ? draft.images : undefined,
+    file: draft.file,
+    link: draft.link,
+  });
+
+  const submitComment = (draft: CommentDraft) => {
+    addComment(post.id, makeComment(draft), replyRootId ?? undefined);
+    setReplyTo(null);
+    setReplyRootId(null);
+  };
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[90] flex justify-center bg-black/30 animate-fade-in">
+      <button aria-label={t("close")} onClick={onClose} className="absolute inset-0 cursor-default" />
+      <div className="relative flex h-full w-full max-w-[600px] flex-col bg-surface shadow-float animate-slide-in-left">
+        {/* Header */}
+        <header className="flex shrink-0 items-center gap-2 border-b border-line px-2 py-2.5">
+          <button
+            onClick={onClose}
+            aria-label={t("back")}
+            className="flex size-9 items-center justify-center rounded-full text-muted transition hover:bg-surface-3"
+          >
+            <RiArrowLeftLine className="size-5" />
+          </button>
+          <h2 className="flex-1 text-base font-bold text-ink">{t("commentsTitle")}</h2>
+          <span className="pr-2 text-sm text-muted">{total}</span>
+        </header>
+
+        {/* Scrollable content */}
+        <div className="scroll-clean min-h-0 flex-1 overflow-y-auto">
+          {/* The post being discussed */}
+          <div className="flex gap-3 border-b border-line p-4">
+            <Avatar src={post.author.avatar} name={post.author.name} size={40} />
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-1 text-sm font-semibold text-ink">
+                {post.author.name}
+                {post.author.verified && <RiVerifiedBadgeFill className="size-3.5 text-accent" />}
+              </p>
+              {post.text && <p className="mt-0.5 whitespace-pre-wrap text-sm text-ink">{linkify(post.text, false)}</p>}
+              <p className="mt-1 text-xs text-faint">{post.time}</p>
+            </div>
+          </div>
+
+          <div className="p-4">
+            {post.comments.length > 0 && (
+              <div className="mb-3 flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted">{total} {t("comments")}</span>
+                <div className="flex gap-0.5 rounded-full bg-surface-2 p-0.5">
+                  {(["top", "new"] as const).map((key) => (
+                    <button
+                      key={key}
+                      onClick={() => setSort(key)}
+                      className={cx("rounded-full px-3 py-1 text-xs font-medium transition", sort === key ? "bg-accent text-white" : "text-muted hover:text-ink")}
+                    >
+                      {key === "top" ? t("sortTop") : t("sortNew")}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3">
+              {sorted.map((c) => (
+                <CommentRow
+                  key={c.id}
+                  comment={c}
+                  sort={sort}
+                  onReply={(target, rootId) => {
+                    setReplyTo(target);
+                    setReplyRootId(rootId);
+                  }}
+                  onLike={(id) => toggleCommentLike(post.id, id)}
+                  onOpenPerson={openPerson}
+                />
+              ))}
+              {post.comments.length === 0 && (
+                <p className="py-10 text-center text-sm text-faint">{t("noComments")}</p>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Composer — pinned to the bottom, never moves */}
+        <div className="shrink-0 border-t border-line bg-surface p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
+          {replyTo && (
+            <div className="mb-2 flex items-center gap-2 rounded-xl bg-surface-2 px-3 py-1.5">
+              <span className="flex-1 truncate text-xs text-muted">
+                {t("replyingTo")} <span className="font-medium text-ink">{replyTo.author.name}</span>
+              </span>
+              <button onClick={() => setReplyTo(null)} aria-label={t("cancel")} className="text-muted">
+                <RiCloseLine className="size-4" />
+              </button>
+            </div>
+          )}
+          <CommentComposer
+            key={replyTo?.id ?? "root"}
+            autoFocus={!!replyTo}
+            placeholder={replyTo ? `${t("reply")} ${replyTo.author.name}...` : t("writeComment")}
+            onSubmit={submitComment}
+          />
+        </div>
+      </div>
+    </div>,
+    document.body,
   );
 }
 

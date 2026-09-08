@@ -42,6 +42,7 @@ import { linkify } from "@/utils/linkify";
 import { cx } from "@/utils/cx";
 import { uid } from "@/utils/uid";
 import { NewGroupDialog } from "./new-group-dialog";
+import { ChatInfo } from "./chat-info";
 import { ChatMoreSheet, ForwardPicker, MessageMenu } from "./chat-sheets";
 import {
   LevelMeter,
@@ -260,6 +261,7 @@ function Conversation({
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [viewer, setViewer] = useState<{ items: string[]; index: number } | null>(null);
+  const [infoOpen, setInfoOpen] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -380,7 +382,7 @@ function Conversation({
             </button>
           )}
           <button
-            onClick={() => person && onOpenPerson?.(person)}
+            onClick={() => setInfoOpen(true)}
             className="flex min-w-0 flex-1 items-center gap-2 text-left"
           >
             <ChatAvatar chat={chat} size={40} />
@@ -482,6 +484,18 @@ function Conversation({
       </div>
 
       {/* Overlays */}
+      {infoOpen && (
+        <ChatInfo
+          chat={chat}
+          onBack={() => setInfoOpen(false)}
+          onOpenPerson={(p) => {
+            setInfoOpen(false);
+            onOpenPerson?.(p);
+          }}
+          onStartCall={onStartCall}
+        />
+      )}
+
       {moreOpen && <ChatMoreSheet chat={chat} onClose={() => setMoreOpen(false)} onCleared={() => setMoreOpen(false)} />}
 
       {menuFor && (

@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { RiArrowLeftLine, RiShareLine, RiVerifiedBadgeFill } from "@remixicon/react";
 import { Avatar } from "@/components/ui/avatar";
+import { MediaViewer } from "@/components/ui/media-viewer";
 import { useStore } from "@/lib/app-store";
 import { useT } from "@/lib/settings-context";
 import type { Person } from "@/lib/mock-data";
@@ -9,12 +11,20 @@ import { emailFor } from "@/lib/accounts";
 import { cx } from "@/utils/cx";
 import { PostCard, compact } from "./post-card";
 
-/** Read-only profile for another person, with their posts. */
+type ContentTab = "posts" | "reposts";
+
+/** Read-only profile for another person, with their posts and reposts. */
 export function PersonProfile({ person, onBack }: { person: Person; onBack: () => void }) {
   const t = useT();
   const { posts, isFollowing, toggleFollow } = useStore();
   const following = isFollowing(person.id);
-  const theirPosts = posts.filter((p) => p.author.handle === person.handle);
+  const [tab, setTab] = useState<ContentTab>("posts");
+  const [avatarOpen, setAvatarOpen] = useState(false);
+
+  const mine = posts.filter((p) => p.author.handle === person.handle);
+  const theirPosts = mine.filter((p) => !p.repostOf);
+  const theirReposts = mine.filter((p) => p.repostOf);
+  const shown = tab === "posts" ? theirPosts : theirReposts;
 
   return (
     <div className="scroll-clean flex h-full flex-col overflow-y-auto bg-canvas pb-6">
@@ -37,9 +47,13 @@ export function PersonProfile({ person, onBack }: { person: Person; onBack: () =
 
       <div className="bg-surface px-5 pb-4">
         <div className="-mt-10 flex items-end justify-between">
-          <span className="flex rounded-full border-4 border-surface">
+          <button
+            onClick={() => person.avatar && setAvatarOpen(true)}
+            aria-label={person.name}
+            className="inline-flex rounded-full border-4 border-surface transition hover:brightness-95 active:scale-95"
+          >
             <Avatar src={person.avatar} name={person.name} size={80} online={person.online} />
-          </span>
+          </button>
 
           <div className="mb-1 flex gap-2">
             <button className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-medium text-ink transition hover:bg-surface-3">
@@ -82,20 +96,41 @@ export function PersonProfile({ person, onBack }: { person: Person; onBack: () =
         </div>
       </div>
 
-      <div className="sticky top-0 z-10 flex bg-surface/95 py-3 backdrop-blur">
-        <span className="relative flex-1 text-center text-sm font-semibold text-ink">
-          {t("posts")}
-          <span className="absolute inset-x-1/3 bottom-[-12px] h-1 rounded-full bg-accent" />
-        </span>
+      {/* Posts / Reposts tabs */}
+      <div className="sticky top-0 z-10 flex bg-surface/95 backdrop-blur">
+        {(["posts", "reposts"] as const).map((key) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={cx(
+              "relative flex-1 py-3 text-sm font-semibold transition",
+              tab === key ? "text-ink" : "text-muted hover:text-ink",
+            )}
+          >
+            {t(key)}
+            {tab === key && <span className="absolute inset-x-6 bottom-0 h-1 rounded-full bg-accent" />}
+          </button>
+        ))}
       </div>
 
       <div className="flex flex-col gap-3 p-3">
-        {theirPosts.length === 0 ? (
-          <p className="py-14 text-center text-sm text-faint">{t("noPosts")}</p>
+        {shown.length === 0 ? (
+          <p className="py-14 text-center text-sm text-faint">
+            {tab === "posts" ? t("noPosts") : t("noReposts")}
+          </p>
         ) : (
-          theirPosts.map((post) => <PostCard key={post.id} post={post} />)
+          shown.map((post) => <PostCard key={post.id} post={post} />)
         )}
       </div>
+
+      {avatarOpen && person.avatar && (
+        <MediaViewer
+          items={[{ src: person.avatar, kind: "image" }]}
+          index={0}
+          onIndex={() => {}}
+          onClose={() => setAvatarOpen(false)}
+        />
+      )}
     </div>
   );
 }

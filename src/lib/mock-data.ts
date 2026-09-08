@@ -369,3 +369,32 @@ export const POSTS: Post[] = [
   },
 ];
 
+
+// A couple of demo reposts so other people's profiles have a populated Reposts tab.
+const findPost = (id: string) => POSTS.find((p) => p.id === id)!;
+POSTS.push(
+  {
+    id: "t6",
+    author: PEOPLE[7],
+    time: "Monday, Jun 9, 6:20 PM",
+    text: "This. Every single word. 👇",
+    likes: 63,
+    likers: [PEOPLE[0], PEOPLE[5]],
+    comments: [],
+    shares: 4,
+    views: 5200,
+    repostOf: findPost("t4"),
+  },
+  {
+    id: "t7",
+    author: PEOPLE[0],
+    time: "Monday, Jun 9, 8:45 AM",
+    text: "Reposting for the folks in the back ⛰️",
+    likes: 120,
+    likers: [PEOPLE[3], PEOPLE[2]],
+    comments: [],
+    shares: 9,
+    views: 8800,
+    repostOf: findPost("t5"),
+  },
+);

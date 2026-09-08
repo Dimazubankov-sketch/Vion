@@ -256,6 +256,15 @@ const en = {
   retractVote: "Undo vote",
   viewReplies: "View replies",
   hideReplies: "Hide replies",
+  commentsTitle: "Comments",
+  openProfile: "Open profile",
+  participants: "Members",
+  tabMedia: "Media",
+  tabFiles: "Files",
+  tabMusic: "Music",
+  tabVoice: "Voice",
+  tabLinks: "Links",
+  emptySection: "Nothing here yet",
 };
 
 export type TranslationKey = keyof typeof en;
@@ -497,6 +506,15 @@ const ru: Dict = {
   retractVote: "Отменить голос",
   viewReplies: "Посмотреть ответы",
   hideReplies: "Скрыть ответы",
+  commentsTitle: "Комментарии",
+  openProfile: "Открыть профиль",
+  participants: "Участники",
+  tabMedia: "Медиа",
+  tabFiles: "Файлы",
+  tabMusic: "Музыка",
+  tabVoice: "Голосовые",
+  tabLinks: "Ссылки",
+  emptySection: "Здесь пока пусто",
 };
 
 const es: Dict = {
@@ -728,6 +746,15 @@ const es: Dict = {
   retractVote: "Deshacer voto",
   viewReplies: "Ver respuestas",
   hideReplies: "Ocultar respuestas",
+  commentsTitle: "Comentarios",
+  openProfile: "Abrir perfil",
+  participants: "Miembros",
+  tabMedia: "Multimedia",
+  tabFiles: "Archivos",
+  tabMusic: "Musica",
+  tabVoice: "Voz",
+  tabLinks: "Enlaces",
+  emptySection: "Aun no hay nada aqui",
 };
 
 const de: Dict = {
@@ -959,6 +986,15 @@ const de: Dict = {
   retractVote: "Stimme zuruecknehmen",
   viewReplies: "Antworten ansehen",
   hideReplies: "Antworten ausblenden",
+  commentsTitle: "Kommentare",
+  openProfile: "Profil oeffnen",
+  participants: "Mitglieder",
+  tabMedia: "Medien",
+  tabFiles: "Dateien",
+  tabMusic: "Musik",
+  tabVoice: "Sprache",
+  tabLinks: "Links",
+  emptySection: "Noch nichts hier",
 };
 
 const fr: Dict = {
@@ -1190,6 +1226,15 @@ const fr: Dict = {
   retractVote: "Annuler le vote",
   viewReplies: "Voir les reponses",
   hideReplies: "Masquer les reponses",
+  commentsTitle: "Commentaires",
+  openProfile: "Ouvrir le profil",
+  participants: "Membres",
+  tabMedia: "Medias",
+  tabFiles: "Fichiers",
+  tabMusic: "Musique",
+  tabVoice: "Voix",
+  tabLinks: "Liens",
+  emptySection: "Rien ici pour le moment",
 };
 
 export const DICTS: Record<Lang, Dict> = { en, ru, es, de, fr };

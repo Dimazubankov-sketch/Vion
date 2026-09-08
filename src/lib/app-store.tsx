@@ -6,7 +6,6 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -21,7 +20,7 @@ import {
   type Post,
   type PostComment,
 } from "./mock-data";
-import { useAuth } from "./auth-context";
+import { useAuth, type VoyzenUser } from "./auth-context";
 import { uid } from "@/utils/uid";
 
 /** What a new post can carry beyond its text. */
@@ -100,27 +99,70 @@ function mapComment(
   });
 }
 
+/** Everything we persist for one account, so a reload restores their world. */
+interface PersistedState {
+  posts: Post[];
+  chats: Chat[];
+  followed: string[];
+  settings: Record<string, ChatSettings>;
+  blocked: Record<string, boolean>;
+}
+
+const storeKey = (handle: string) => `voyzen.store.${handle}`;
+
+function loadState(handle: string | null): PersistedState | null {
+  if (!handle) return null;
+  try {
+    const raw = window.localStorage.getItem(storeKey(handle));
+    return raw ? (JSON.parse(raw) as PersistedState) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveState(handle: string, state: PersistedState) {
+  try {
+    window.localStorage.setItem(storeKey(handle), JSON.stringify(state));
+  } catch {
+    /* ignore quota / unavailable storage */
+  }
+}
+
 export function AppStoreProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [posts, setPosts] = useState<Post[]>(POSTS);
-  const [chats, setChats] = useState<Chat[]>(CHATS);
-  const [followed, setFollowed] = useState<Set<string>>(new Set(INITIAL_FOLLOWED));
-  const [settings, setSettings] = useState<Record<string, ChatSettings>>({});
-  const [blocked, setBlocked] = useState<Record<string, boolean>>({});
+  // Keyed by handle: switching accounts remounts the store so each one loads
+  // its own persisted state cleanly instead of leaking the previous account's.
+  return (
+    <StoreInner key={user?.handle ?? "anon"} handle={user?.handle ?? null} user={user}>
+      {children}
+    </StoreInner>
+  );
+}
 
-  // Signing out and back in shouldn't leave the previous account's state around.
-  const lastHandle = useRef<string | null>(user?.handle ?? null);
+function StoreInner({
+  handle,
+  user,
+  children,
+}: {
+  handle: string | null;
+  user: VoyzenUser | null;
+  children: ReactNode;
+}) {
+  // `handle` is fixed for this mount, so this reads storage exactly once.
+  const saved = useMemo(() => loadState(handle), [handle]);
+  const [posts, setPosts] = useState<Post[]>(() => saved?.posts ?? POSTS);
+  const [chats, setChats] = useState<Chat[]>(() => saved?.chats ?? CHATS);
+  const [followed, setFollowed] = useState<Set<string>>(
+    () => new Set(saved?.followed ?? INITIAL_FOLLOWED),
+  );
+  const [settings, setSettings] = useState<Record<string, ChatSettings>>(() => saved?.settings ?? {});
+  const [blocked, setBlocked] = useState<Record<string, boolean>>(() => saved?.blocked ?? {});
+
+  // Persist this account's world whenever it changes.
   useEffect(() => {
-    const handle = user?.handle ?? null;
-    if (handle !== lastHandle.current) {
-      lastHandle.current = handle;
-      setPosts(POSTS);
-      setChats(CHATS);
-      setFollowed(new Set(INITIAL_FOLLOWED));
-      setSettings({});
-      setBlocked({});
-    }
-  }, [user?.handle]);
+    if (!handle) return;
+    saveState(handle, { posts, chats, followed: [...followed], settings, blocked });
+  }, [handle, posts, chats, followed, settings, blocked]);
 
   // Sweep out expired disappearing messages once a second.
   useEffect(() => {

@@ -1,10 +1,10 @@
 "use client";
 
 import {
+  RiBookmarkLine,
   RiChat3Line,
   RiCloseLine,
   RiCustomerServiceLine,
-  RiHistoryLine,
   RiHome5Line,
   RiLogoutBoxRLine,
   RiMoonLine,
@@ -18,7 +18,7 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { ToggleVisual } from "@/components/ui/toggle";
 import { emailFor } from "@/lib/accounts";
-import { VoyzenMark, VoyzenWordmark } from "@/components/logo";
+import { VoyzenMark } from "@/components/logo";
 import type { VoyzenUser } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { useT } from "@/lib/settings-context";
@@ -76,7 +76,7 @@ function Panel({
     { key: "home", labelKey: "home", icon: RiHome5Line },
     { key: "search", labelKey: "searchTab", icon: RiSearchLine },
     { key: "chat", labelKey: "messages", icon: RiChat3Line, badge: unread.chat },
-    { key: "history", labelKey: "history", icon: RiHistoryLine },
+    { key: "history", labelKey: "history", icon: RiBookmarkLine },
     { key: "profile", labelKey: "profile", icon: RiUserSmileLine },
   ];
 
@@ -101,11 +101,16 @@ function Panel({
         {/* Brand + collapse / close */}
         <div
           className={cx(
-            "flex items-center",
+            "relative flex items-center",
             collapsed ? "flex-col gap-3" : "justify-between",
           )}
         >
-          {collapsed ? <VoyzenMark className="size-8" /> : <VoyzenWordmark markClassName="size-9" />}
+          <VoyzenMark className={collapsed ? "size-9" : "size-11"} />
+          {!collapsed && (
+            <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-lg font-bold text-ink">
+              {t("menu")}
+            </span>
+          )}
 
           {variant === "drawer" ? (
             <button

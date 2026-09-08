@@ -18,6 +18,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { useT } from "@/lib/settings-context";
 import type { TranslationKey } from "@/lib/i18n";
 import { cx } from "@/utils/cx";
+import { playConnect, playHangup, startDialTone, stopDialTone } from "@/utils/call-sounds";
 import { FourInARow, RockPaperScissors, TicTacToe, TrueOrFalse } from "./games";
 
 export type CallKind = "audio" | "video";
@@ -79,6 +80,16 @@ export function CallOverlay({
     const id = setTimeout(() => setConnected(true), Math.max(0, 1800 - (Date.now() - startedAt)));
     return () => clearTimeout(id);
   }, [connected, startedAt]);
+
+  // Ringback while calling, a connect chirp once it picks up.
+  useEffect(() => {
+    if (connected) {
+      playConnect();
+      return;
+    }
+    startDialTone();
+    return () => stopDialTone();
+  }, [connected]);
 
   // The timer is derived from the session start, so minimising doesn't reset it.
   useEffect(() => {
@@ -311,7 +322,7 @@ export function CallOverlay({
         </ControlButton>
 
         <button
-          onClick={onEnd}
+          onClick={() => { playHangup(); onEnd(); }}
           aria-label={t("endCall")}
           className="flex size-14 items-center justify-center rounded-full bg-danger text-white transition hover:brightness-110 active:scale-95"
         >
@@ -358,7 +369,7 @@ export function MinimizedCall({
         </span>
       </button>
       <button
-        onClick={onEnd}
+        onClick={() => { playHangup(); onEnd(); }}
         aria-label={t("endCall")}
         className="flex size-9 shrink-0 items-center justify-center rounded-full bg-danger text-white transition hover:brightness-110"
       >
