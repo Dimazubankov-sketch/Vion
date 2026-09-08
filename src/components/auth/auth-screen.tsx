@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AuthCard, type AuthMode } from "./auth-card";
 import Loader from "@/components/ui/loader";
-import { VionLogoMark, VionWordmark } from "@/components/logo";
+import { VoyzenLogoMark, VoyzenWordmark } from "@/components/logo";
 import { useT } from "@/lib/settings-context";
 import { cx } from "@/utils/cx";
 
@@ -35,13 +35,13 @@ export function AuthScreen() {
           pending && "hidden",
         )}
       >
-        <VionWordmark />
+        <VoyzenWordmark />
         <AuthCard
           centered
-          logo={<VionLogoMark className="size-14" />}
+          logo={<VoyzenLogoMark className="size-14" />}
           onPendingChange={(isPending, mode) => setPending(isPending ? mode : null)}
         />
-        <p className="text-xs text-faint">© {new Date().getFullYear()} Vion. Demo build.</p>
+        <p className="text-xs text-faint">© {new Date().getFullYear()} Voyzen. Demo build.</p>
       </div>
     </main>
   );

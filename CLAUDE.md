@@ -1,6 +1,6 @@
-# Vion — project notes for Claude
+# Voyzen — project notes for Claude
 
-Messenger app styled like X (Twitter) + Telegram. Light-grey UI, Vion violet accent.
+Messenger app styled like X (Twitter) + Telegram. Light-grey UI, Voyzen violet accent.
 
 - Stack: Next.js 16 (App Router) + TS + Tailwind v4 (CSS-first `@theme` in `globals.css`,
   no `tailwind.config`) + `react-aria-components` + `@remixicon/react`.

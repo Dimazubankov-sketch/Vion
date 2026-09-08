@@ -16,8 +16,10 @@ import {
   RiUserSmileLine,
 } from "@remixicon/react";
 import { Avatar } from "@/components/ui/avatar";
-import { VionMark, VionWordmark } from "@/components/logo";
-import type { VionUser } from "@/lib/auth-context";
+import { ToggleVisual } from "@/components/ui/toggle";
+import { emailFor } from "@/lib/accounts";
+import { VoyzenMark, VoyzenWordmark } from "@/components/logo";
+import type { VoyzenUser } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { useT } from "@/lib/settings-context";
 import type { TranslationKey } from "@/lib/i18n";
@@ -37,7 +39,7 @@ interface Row {
 }
 
 interface SidebarProps {
-  user: VionUser;
+  user: VoyzenUser;
   tab: AppTab;
   onNavigate: (tab: AppTab) => void;
   onOpenProfile: () => void;
@@ -103,7 +105,7 @@ function Panel({
             collapsed ? "flex-col gap-3" : "justify-between",
           )}
         >
-          {collapsed ? <VionMark className="size-8" /> : <VionWordmark markClassName="size-9" />}
+          {collapsed ? <VoyzenMark className="size-8" /> : <VoyzenWordmark markClassName="size-9" />}
 
           {variant === "drawer" ? (
             <button
@@ -142,7 +144,7 @@ function Panel({
           {!collapsed && (
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold text-ink">{user.name}</p>
-              <p className="truncate text-xs text-muted">@{user.handle}</p>
+              <p className="truncate text-xs text-muted">{emailFor(user.handle)}</p>
             </div>
           )}
         </button>
@@ -201,19 +203,7 @@ function Panel({
           {!collapsed && (
             <>
               <span className="flex-1 text-left">{t("darkMode")}</span>
-              <span
-                className={cx(
-                  "relative h-5 w-9 rounded-full transition",
-                  theme === "dark" ? "bg-accent" : "bg-surface-3",
-                )}
-              >
-                <span
-                  className={cx(
-                    "absolute top-0.5 size-4 rounded-full bg-white shadow transition",
-                    theme === "dark" ? "left-[18px]" : "left-0.5",
-                  )}
-                />
-              </span>
+              <ToggleVisual on={theme === "dark"} size="sm" />
             </>
           )}
         </button>

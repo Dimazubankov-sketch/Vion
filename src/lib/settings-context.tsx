@@ -36,7 +36,7 @@ interface SettingsValue {
   isWideScreen: boolean;
 }
 
-const STORAGE_KEY = "vion.settings";
+const STORAGE_KEY = "voyzen.settings";
 const SettingsContext = createContext<SettingsValue | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {

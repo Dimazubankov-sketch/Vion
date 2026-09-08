@@ -12,8 +12,8 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "Vion",
-  description: "Vion — your feed, your people, your chats.",
+  title: "Voyzen",
+  description: "Voyzen — your feed, your people, your chats.",
 };
 
 export const viewport: Viewport = {
@@ -26,7 +26,7 @@ export const viewport: Viewport = {
 // Apply the saved theme before paint to avoid a flash of the wrong theme.
 const themeScript = `
 try {
-  var t = localStorage.getItem('vion.theme');
+  var t = localStorage.getItem('voyzen.theme');
   if (t === 'dark') document.documentElement.classList.add('dark');
 } catch (e) {}
 `;

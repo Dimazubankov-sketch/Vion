@@ -5,6 +5,7 @@ import { RiCheckLine, RiCloseLine, RiGroupLine, RiSearchLine } from "@remixicon/
 import { Avatar } from "@/components/ui/avatar";
 import { useT } from "@/lib/settings-context";
 import { PEOPLE, type Person } from "@/lib/mock-data";
+import { emailFor } from "@/lib/accounts";
 import { cx } from "@/utils/cx";
 
 /**
@@ -114,7 +115,7 @@ export function NewGroupDialog({
                   <Avatar src={p.avatar} name={p.name} size={40} online={p.online} />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium text-ink">{p.name}</p>
-                    <p className="truncate text-xs text-muted">@{p.handle}</p>
+                    <p className="truncate text-xs text-muted">{emailFor(p.handle)}</p>
                   </div>
                   <span
                     className={cx(

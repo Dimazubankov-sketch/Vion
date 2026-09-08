@@ -1,4 +1,4 @@
-/** Static demo content for the Vion prototype (no backend). */
+/** Static demo content for the Voyzen prototype (no backend). */
 
 export interface Person {
   id: string;
@@ -174,7 +174,7 @@ export const CHATS: Chat[] = [
   {
     id: "g1",
     kind: "group",
-    name: "Vion Design Team",
+    name: "Voyzen Design Team",
     members: [PEOPLE[1], PEOPLE[3], PEOPLE[5], PEOPLE[7]],
     unread: 3,
     messages: [
@@ -191,7 +191,7 @@ export const CHATS: Chat[] = [
         id: "m4",
         from: "them",
         authorId: "p8",
-        file: { name: "vion-tokens-v3.pdf", size: "2.4 MB" },
+        file: { name: "voyzen-tokens-v3.pdf", size: "2.4 MB" },
         time: "14:15",
       },
     ],
@@ -202,7 +202,7 @@ export const CHATS: Chat[] = [
     person: PEOPLE[1],
     unread: 1,
     messages: [
-      { id: "m1", from: "them", text: "Did you see the new Vion update?", time: "16:52" },
+      { id: "m1", from: "them", text: "Did you see the new Voyzen update?", time: "16:52" },
       { id: "m2", from: "me", text: "Not yet — what changed?", time: "16:55", read: true },
       { id: "m3", from: "them", text: "Sounds perfect! I've been wanting to try it.", time: "16:58" },
     ],

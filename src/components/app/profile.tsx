@@ -16,7 +16,8 @@ import { useStore } from "@/lib/app-store";
 import { useT } from "@/lib/settings-context";
 import { useProfileNav } from "@/lib/profile-nav";
 import { PEOPLE } from "@/lib/mock-data";
-import type { VionUser } from "@/lib/auth-context";
+import type { VoyzenUser } from "@/lib/auth-context";
+import { emailFor } from "@/lib/accounts";
 import { cx } from "@/utils/cx";
 import { PostCard, compact } from "./post-card";
 import { EditProfileDialog } from "./edit-profile";
@@ -25,7 +26,7 @@ import { PostComposerDialog } from "./post-composer";
 type ContentTab = "posts" | "reposts";
 type PeopleTab = "following" | "followers";
 
-export function Profile({ user, onBack }: { user: VionUser; onBack: () => void }) {
+export function Profile({ user, onBack }: { user: VoyzenUser; onBack: () => void }) {
   const t = useT();
   const { myPosts, repostedPosts } = useStore();
   const [tab, setTab] = useState<ContentTab>("posts");
@@ -92,7 +93,7 @@ export function Profile({ user, onBack }: { user: VionUser; onBack: () => void }
           <div className="mt-3">
             <h1 className="text-xl font-bold text-ink">{user.name}</h1>
             <div className="flex items-center gap-2">
-              <span className="text-sm text-muted">@{user.handle}</span>
+              <span className="text-sm text-muted">{emailFor(user.handle)}</span>
               <span className="rounded-md bg-surface-3 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-muted">
                 Pro
               </span>
@@ -242,7 +243,7 @@ function PeoplePanel({
             <Avatar src={p.avatar} name={p.name} size={44} online={p.online} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-ink">{p.name}</p>
-              <p className="truncate text-xs text-muted">@{p.handle}</p>
+              <p className="truncate text-xs text-muted">{emailFor(p.handle)}</p>
             </div>
             <span className="rounded-full border border-line px-3.5 py-1.5 text-sm font-medium text-ink">
               {tab === "following" ? t("following") : "Follow"}

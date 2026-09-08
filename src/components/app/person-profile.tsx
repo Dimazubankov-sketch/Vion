@@ -5,6 +5,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { useStore } from "@/lib/app-store";
 import { useT } from "@/lib/settings-context";
 import type { Person } from "@/lib/mock-data";
+import { emailFor } from "@/lib/accounts";
 import { cx } from "@/utils/cx";
 import { PostCard, compact } from "./post-card";
 
@@ -64,7 +65,7 @@ export function PersonProfile({ person, onBack }: { person: Person; onBack: () =
             <h1 className="text-xl font-bold text-ink">{person.name}</h1>
             {person.verified && <RiVerifiedBadgeFill className="size-5 text-accent" />}
           </div>
-          <span className="text-sm text-muted">@{person.handle}</span>
+          <span className="text-sm text-muted">{emailFor(person.handle)}</span>
         </div>
 
         {person.bio && (

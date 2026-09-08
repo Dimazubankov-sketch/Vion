@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { useStore, PEOPLE } from "@/lib/app-store";
 import { useProfileNav } from "@/lib/profile-nav";
 import { useT } from "@/lib/settings-context";
+import { emailFor } from "@/lib/accounts";
 import { cx } from "@/utils/cx";
 import { PostCard, compact } from "./post-card";
 
@@ -132,7 +133,7 @@ export function Search({ leading }: { leading?: React.ReactNode }) {
                         {p.name}
                         {p.verified && <RiVerifiedBadgeFill className="size-3.5 text-accent" />}
                       </p>
-                      <p className="truncate text-xs text-muted">@{p.handle} · {compact(p.followers ?? 0)} {t("followers")}</p>
+                      <p className="truncate text-xs text-muted">{emailFor(p.handle)} · {compact(p.followers ?? 0)} {t("followers")}</p>
                     </div>
                   </button>
                 ))}

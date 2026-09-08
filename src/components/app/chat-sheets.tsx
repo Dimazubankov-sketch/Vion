@@ -14,6 +14,7 @@ import {
   RiTimer2Line,
 } from "@remixicon/react";
 import { Avatar } from "@/components/ui/avatar";
+import { ToggleVisual } from "@/components/ui/toggle";
 import { useStore } from "@/lib/app-store";
 import { useT } from "@/lib/settings-context";
 import { chatAvatar, chatTitle, type Chat } from "@/lib/mock-data";
@@ -92,19 +93,6 @@ function Row({
   );
 }
 
-function Toggle({ on }: { on: boolean }) {
-  return (
-    <span className={cx("relative h-6 w-11 shrink-0 rounded-full transition", on ? "bg-accent" : "bg-surface-3")}>
-      <span
-        className={cx(
-          "absolute top-0.5 size-5 rounded-full bg-white shadow transition-all",
-          on ? "left-[22px]" : "left-0.5",
-        )}
-      />
-    </span>
-  );
-}
-
 const DISAPPEAR_OPTIONS = [0, 30, 300, 3600, 86400];
 function disappearLabel(seconds: number, off: string) {
   if (seconds === 0) return off;
@@ -174,14 +162,14 @@ export function ChatMoreSheet({
         label={t("blockScreenshots")}
         onClick={() => setChatSetting(chat.id, "screenshots", !settings.screenshots)}
       >
-        <Toggle on={settings.screenshots} />
+        <ToggleVisual on={settings.screenshots} />
       </Row>
       <Row
         icon={<RiShareForwardLine className="size-5 text-muted" />}
         label={t("blockForwarding")}
         onClick={() => setChatSetting(chat.id, "forwarding", !settings.forwarding)}
       >
-        <Toggle on={settings.forwarding} />
+        <ToggleVisual on={settings.forwarding} />
       </Row>
 
       <div className="my-1 h-px bg-line" />

@@ -11,7 +11,7 @@ import {
 } from "react";
 import { emailFor, normalizeUsername } from "./accounts";
 
-export interface VionUser {
+export interface VoyzenUser {
   name: string;
   handle: string;
   email: string;
@@ -26,20 +26,20 @@ export interface VionUser {
 }
 
 interface AuthValue {
-  user: VionUser | null;
+  user: VoyzenUser | null;
   ready: boolean;
   /** Drop straight into the app with an already-verified account. */
   signIn: (account: { username: string; name: string; phone?: string }) => void;
   signUp: (name: string, username: string, phone: string) => void;
   signOut: () => void;
-  updateUser: (patch: Partial<VionUser>) => void;
+  updateUser: (patch: Partial<VoyzenUser>) => void;
 }
 
-const STORAGE_KEY = "vion.user";
+const STORAGE_KEY = "voyzen.user";
 const AuthContext = createContext<AuthValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<VionUser | null>(null);
+  const [user, setUser] = useState<VoyzenUser | null>(null);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -47,12 +47,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const raw = window.localStorage.getItem(STORAGE_KEY);
       if (raw) {
         // Sessions saved before these fields existed still need sane numbers.
-        const saved = JSON.parse(raw) as Partial<VionUser>;
+        const saved = JSON.parse(raw) as Partial<VoyzenUser>;
         setUser({
           following: 394,
           followers: 28300,
           ...saved,
-        } as VionUser);
+        } as VoyzenUser);
       }
     } catch {
       /* ignore unavailable storage */
@@ -60,7 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setReady(true);
   }, []);
 
-  const persist = useCallback((next: VionUser | null) => {
+  const persist = useCallback((next: VoyzenUser | null) => {
     setUser(next);
     try {
       if (next) window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = useCallback(
     ({ username, name, phone }: { username: string; name: string; phone?: string }) => {
       persist({
-        name: name || "Vion User",
+        name: name || "Voyzen User",
         handle: normalizeUsername(username),
         email: emailFor(username),
         phone,
@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signUp = useCallback(
     (name: string, username: string, phone: string) => {
       persist({
-        name: name || "Vion User",
+        name: name || "Voyzen User",
         handle: normalizeUsername(username),
         email: emailFor(username),
         phone,
@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(() => persist(null), [persist]);
 
   const updateUser = useCallback(
-    (patch: Partial<VionUser>) =>
+    (patch: Partial<VoyzenUser>) =>
       setUser((current) => {
         if (!current) return current;
         const next = { ...current, ...patch };

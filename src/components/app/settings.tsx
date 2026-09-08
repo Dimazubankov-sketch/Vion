@@ -13,6 +13,7 @@ import { useSettings } from "@/lib/settings-context";
 import { useTheme } from "@/lib/theme-context";
 import { LANGUAGES } from "@/lib/i18n";
 import { Flag, formatPhone } from "@/components/base/phone-input";
+import { Toggle } from "@/components/ui/toggle";
 import { cx } from "@/utils/cx";
 
 export function Settings({ onBack }: { onBack: () => void }) {
@@ -159,32 +160,3 @@ function Row({
   );
 }
 
-function Toggle({
-  on,
-  onChange,
-  label,
-}: {
-  on: boolean;
-  onChange: (value: boolean) => void;
-  label: string;
-}) {
-  return (
-    <button
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      onClick={() => onChange(!on)}
-      className={cx(
-        "relative h-6 w-11 shrink-0 rounded-full transition",
-        on ? "bg-accent" : "bg-surface-3",
-      )}
-    >
-      <span
-        className={cx(
-          "absolute top-0.5 size-5 rounded-full bg-white shadow transition-all",
-          on ? "left-[22px]" : "left-0.5",
-        )}
-      />
-    </button>
-  );
-}

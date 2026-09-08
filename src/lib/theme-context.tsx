@@ -15,7 +15,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
-    const stored = (typeof window !== "undefined" && window.localStorage.getItem("vion.theme")) as Theme | null;
+    const stored = (typeof window !== "undefined" && window.localStorage.getItem("voyzen.theme")) as Theme | null;
     const initial: Theme = stored ?? (document.documentElement.classList.contains("dark") ? "dark" : "light");
     setTheme(initial);
   }, []);
@@ -23,7 +23,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     document.documentElement.classList.toggle("dark", theme === "dark");
     try {
-      window.localStorage.setItem("vion.theme", theme);
+      window.localStorage.setItem("voyzen.theme", theme);
     } catch {
       /* ignore */
     }

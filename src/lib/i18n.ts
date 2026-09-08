@@ -128,10 +128,10 @@ const en = {
   signIn: "Sign in",
   signUp: "Sign up",
   createAccount: "Create account",
-  signInTitle: "Sign in to Vion",
+  signInTitle: "Sign in to Voyzen",
   signInSub: "One place for your feed, your people, and your chats.",
   signUpTitle: "Create your account",
-  signUpSub: "Start building your world on Vion in a couple of minutes.",
+  signUpSub: "Start building your world on Voyzen in a couple of minutes.",
   fullName: "Full name",
   password: "Password",
   phoneNumber: "Phone Number",
@@ -200,7 +200,7 @@ const en = {
 
   forYou: "For you",
   searchTab: "Search",
-  searchEverything: "Search Vion",
+  searchEverything: "Search Voyzen",
   filterAll: "All",
   filterPeople: "People",
   filterPosts: "Posts",
@@ -251,6 +251,11 @@ const en = {
   forwardTo: "Forward to...",
   forwardedFrom: "Forwarded from",
   deleteSelected: "Delete selected",
+  whoToFollow: "Who to follow",
+  whoToFollowSub: "Follow people to fill your feed.",
+  retractVote: "Undo vote",
+  viewReplies: "View replies",
+  hideReplies: "Hide replies",
 };
 
 export type TranslationKey = keyof typeof en;
@@ -365,10 +370,10 @@ const ru: Dict = {
   signIn: "Войти",
   signUp: "Регистрация",
   createAccount: "Создать аккаунт",
-  signInTitle: "Вход в Vion",
+  signInTitle: "Вход в Voyzen",
   signInSub: "Лента, люди и чаты — в одном месте.",
   signUpTitle: "Создайте аккаунт",
-  signUpSub: "Начните пользоваться Vion за пару минут.",
+  signUpSub: "Начните пользоваться Voyzen за пару минут.",
   fullName: "Имя и фамилия",
   password: "Пароль",
   phoneNumber: "Номер телефона",
@@ -436,7 +441,7 @@ const ru: Dict = {
 
   forYou: "Для вас",
   searchTab: "Поиск",
-  searchEverything: "Поиск в Vion",
+  searchEverything: "Поиск в Voyzen",
   filterAll: "Всё",
   filterPeople: "Люди",
   filterPosts: "Посты",
@@ -487,6 +492,11 @@ const ru: Dict = {
   forwardTo: "Переслать в...",
   forwardedFrom: "Переслано от",
   deleteSelected: "Удалить выбранное",
+  whoToFollow: "Кого читать",
+  whoToFollowSub: "Подпишитесь на людей, чтобы наполнить ленту.",
+  retractVote: "Отменить голос",
+  viewReplies: "Посмотреть ответы",
+  hideReplies: "Скрыть ответы",
 };
 
 const es: Dict = {
@@ -591,10 +601,10 @@ const es: Dict = {
   signIn: "Iniciar sesión",
   signUp: "Registrarse",
   createAccount: "Crear cuenta",
-  signInTitle: "Inicia sesión en Vion",
+  signInTitle: "Inicia sesión en Voyzen",
   signInSub: "Tu feed, tu gente y tus chats en un solo lugar.",
   signUpTitle: "Crea tu cuenta",
-  signUpSub: "Empieza en Vion en un par de minutos.",
+  signUpSub: "Empieza en Voyzen en un par de minutos.",
   fullName: "Nombre completo",
   password: "Contraseña",
   phoneNumber: "Número de teléfono",
@@ -662,7 +672,7 @@ const es: Dict = {
 
   forYou: "Para ti",
   searchTab: "Buscar",
-  searchEverything: "Buscar en Vion",
+  searchEverything: "Buscar en Voyzen",
   filterAll: "Todo",
   filterPeople: "Personas",
   filterPosts: "Publicaciones",
@@ -713,6 +723,11 @@ const es: Dict = {
   forwardTo: "Reenviar a...",
   forwardedFrom: "Reenviado de",
   deleteSelected: "Eliminar seleccion",
+  whoToFollow: "A quien seguir",
+  whoToFollowSub: "Sigue a personas para llenar tu feed.",
+  retractVote: "Deshacer voto",
+  viewReplies: "Ver respuestas",
+  hideReplies: "Ocultar respuestas",
 };
 
 const de: Dict = {
@@ -817,10 +832,10 @@ const de: Dict = {
   signIn: "Anmelden",
   signUp: "Registrieren",
   createAccount: "Konto erstellen",
-  signInTitle: "Bei Vion anmelden",
+  signInTitle: "Bei Voyzen anmelden",
   signInSub: "Dein Feed, deine Leute und deine Chats an einem Ort.",
   signUpTitle: "Konto erstellen",
-  signUpSub: "In ein paar Minuten startklar mit Vion.",
+  signUpSub: "In ein paar Minuten startklar mit Voyzen.",
   fullName: "Vollständiger Name",
   password: "Passwort",
   phoneNumber: "Telefonnummer",
@@ -888,7 +903,7 @@ const de: Dict = {
 
   forYou: "Für dich",
   searchTab: "Suche",
-  searchEverything: "Vion durchsuchen",
+  searchEverything: "Voyzen durchsuchen",
   filterAll: "Alle",
   filterPeople: "Personen",
   filterPosts: "Beiträge",
@@ -939,6 +954,11 @@ const de: Dict = {
   forwardTo: "Weiterleiten an...",
   forwardedFrom: "Weitergeleitet von",
   deleteSelected: "Auswahl löschen",
+  whoToFollow: "Wem folgen",
+  whoToFollowSub: "Folge Leuten, um deinen Feed zu fuellen.",
+  retractVote: "Stimme zuruecknehmen",
+  viewReplies: "Antworten ansehen",
+  hideReplies: "Antworten ausblenden",
 };
 
 const fr: Dict = {
@@ -1043,10 +1063,10 @@ const fr: Dict = {
   signIn: "Se connecter",
   signUp: "S'inscrire",
   createAccount: "Créer un compte",
-  signInTitle: "Connexion à Vion",
+  signInTitle: "Connexion à Voyzen",
   signInSub: "Votre fil, vos amis et vos discussions au même endroit.",
   signUpTitle: "Créez votre compte",
-  signUpSub: "Lancez-vous sur Vion en quelques minutes.",
+  signUpSub: "Lancez-vous sur Voyzen en quelques minutes.",
   fullName: "Nom complet",
   password: "Mot de passe",
   phoneNumber: "Numéro de téléphone",
@@ -1114,7 +1134,7 @@ const fr: Dict = {
 
   forYou: "Pour vous",
   searchTab: "Recherche",
-  searchEverything: "Rechercher dans Vion",
+  searchEverything: "Rechercher dans Voyzen",
   filterAll: "Tout",
   filterPeople: "Personnes",
   filterPosts: "Publications",
@@ -1165,6 +1185,11 @@ const fr: Dict = {
   forwardTo: "Transferer vers...",
   forwardedFrom: "Transfere de",
   deleteSelected: "Supprimer la selection",
+  whoToFollow: "Qui suivre",
+  whoToFollowSub: "Suivez des gens pour remplir votre fil.",
+  retractVote: "Annuler le vote",
+  viewReplies: "Voir les reponses",
+  hideReplies: "Masquer les reponses",
 };
 
 export const DICTS: Record<Lang, Dict> = { en, ru, es, de, fr };

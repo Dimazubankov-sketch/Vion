@@ -6,6 +6,7 @@ import { useStore, PEOPLE } from "@/lib/app-store";
 import { useT } from "@/lib/settings-context";
 import { PostCard } from "./post-card";
 import { PostComposerDialog } from "./post-composer";
+import { WhoToFollow } from "./who-to-follow";
 
 type FeedTab = "forYou" | "following";
 
@@ -20,6 +21,8 @@ export function Feed({ leading }: { leading?: ReactNode }) {
   const [tab, setTab] = useState<FeedTab>("forYou");
   const [composing, setComposing] = useState(false);
 
+  const followsAnyone = PEOPLE.some((p) => isFollowing(p.id));
+
   const shown = useMemo(() => {
     if (tab === "forYou") return posts;
     // Following: my own posts plus posts by people I follow.
@@ -29,6 +32,9 @@ export function Feed({ leading }: { leading?: ReactNode }) {
       return person ? isFollowing(person.id) : false;
     });
   }, [posts, tab, isFollowing]);
+
+  // No follows yet → suggest people instead of an empty Following feed.
+  const showSuggestions = tab === "following" && !followsAnyone;
 
   return (
     <div className="relative h-full">
@@ -52,13 +58,19 @@ export function Feed({ leading }: { leading?: ReactNode }) {
         </div>
 
         <div className="flex flex-col gap-3 p-3 pb-24">
-          {shown.map((post) => (
-            <PostCard key={post.id} post={post} />
-          ))}
-          {shown.length === 0 ? (
-            <p className="py-16 text-center text-sm text-faint">{t("nothingFound")}</p>
+          {showSuggestions ? (
+            <WhoToFollow />
           ) : (
-            <p className="py-8 text-center text-sm text-faint">{t("allCaughtUp")}</p>
+            <>
+              {shown.map((post) => (
+                <PostCard key={post.id} post={post} />
+              ))}
+              {shown.length === 0 ? (
+                <p className="py-16 text-center text-sm text-faint">{t("nothingFound")}</p>
+              ) : (
+                <p className="py-8 text-center text-sm text-faint">{t("allCaughtUp")}</p>
+              )}
+            </>
           )}
         </div>
       </div>

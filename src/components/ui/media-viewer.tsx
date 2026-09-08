@@ -55,7 +55,7 @@ export function MediaViewer({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = current.src.split("/").pop()?.split("?")[0] || "vion-media";
+      a.download = current.src.split("/").pop()?.split("?")[0] || "voyzen-media";
       document.body.appendChild(a);
       a.click();
       a.remove();

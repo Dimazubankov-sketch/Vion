@@ -1,14 +1,14 @@
 "use client";
 
 import { motion } from "motion/react";
-import { VionMark } from "@/components/logo";
+import { VoyzenMark } from "@/components/logo";
 import { cx } from "@/utils/cx";
 
 interface LoaderProps extends React.HTMLAttributes<HTMLDivElement> {
   title?: string;
   subtitle?: string;
   size?: "sm" | "md" | "lg";
-  /** Show the Vion mark in the middle of the rings. */
+  /** Show the Voyzen mark in the middle of the rings. */
   showMark?: boolean;
 }
 
@@ -193,7 +193,7 @@ export default function Loader({
             className="absolute inset-0 flex items-center justify-center"
             transition={{ duration: 3, repeat: Number.POSITIVE_INFINITY, ease: soft as never }}
           >
-            <VionMark className={config.mark} />
+            <VoyzenMark className={config.mark} />
           </motion.div>
         )}
       </motion.div>

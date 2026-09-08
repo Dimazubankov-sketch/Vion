@@ -16,7 +16,7 @@ export interface StoredAccount {
   passwordHash: string;
 }
 
-const STORAGE_KEY = "vion.accounts";
+const STORAGE_KEY = "voyzen.accounts";
 
 /** Everything before the @, lowercased and stripped of stray characters. */
 export function normalizeUsername(input: string) {
@@ -55,7 +55,7 @@ export function usernameTaken(username: string) {
 
 async function hash(password: string) {
   try {
-    const bytes = new TextEncoder().encode(`vion:${password}`);
+    const bytes = new TextEncoder().encode(`voyzen:${password}`);
     const digest = await crypto.subtle.digest("SHA-256", bytes);
     return Array.from(new Uint8Array(digest))
       .map((b) => b.toString(16).padStart(2, "0"))

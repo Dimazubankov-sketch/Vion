@@ -2,24 +2,24 @@
 import { cx } from "@/utils/cx";
 
 /**
- * Path to the official Vion mark (public/vion-logo.png).
+ * Path to the official Voyzen mark (public/voyzen-logo.png).
  *
  * Plain <img> tags don't get Next's basePath applied automatically, so the
  * GitHub Pages subfolder has to be prefixed by hand.
  */
-export const VION_LOGO_SRC = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/vion-logo.png`;
+export const VOYZEN_LOGO_SRC = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/voyzen-logo.png`;
 
-/** Vion brand mark — the official logo asset. */
-export function VionMark({
+/** Voyzen brand mark — the official logo asset. */
+export function VoyzenMark({
   className,
-  title = "Vion",
+  title = "Voyzen",
 }: {
   className?: string;
   title?: string;
 }) {
   return (
     <img
-      src={VION_LOGO_SRC}
+      src={VOYZEN_LOGO_SRC}
       alt={title}
       className={cx("size-9 object-contain select-none", className)}
       draggable={false}
@@ -28,7 +28,7 @@ export function VionMark({
 }
 
 /** Mark inside a soft rounded tile — used as an app icon / auth logo. */
-export function VionLogoMark({ className }: { className?: string }) {
+export function VoyzenLogoMark({ className }: { className?: string }) {
   return (
     <span
       className={cx(
@@ -36,13 +36,13 @@ export function VionLogoMark({ className }: { className?: string }) {
         className,
       )}
     >
-      <VionMark className="size-4/5" />
+      <VoyzenMark className="size-4/5" />
     </span>
   );
 }
 
-/** Full lockup: mark + "VION" wordmark. */
-export function VionWordmark({
+/** Full lockup: mark + "VOYZEN" wordmark. */
+export function VoyzenWordmark({
   className,
   markClassName,
 }: {
@@ -51,9 +51,9 @@ export function VionWordmark({
 }) {
   return (
     <span className={cx("inline-flex items-center gap-1.5", className)}>
-      <VionMark className={cx("size-7", markClassName)} />
+      <VoyzenMark className={cx("size-7", markClassName)} />
       <span className="text-2xl font-extrabold tracking-tight text-ink">
-        VION
+        VOYZEN
       </span>
     </span>
   );

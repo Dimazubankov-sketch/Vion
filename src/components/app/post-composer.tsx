@@ -18,6 +18,7 @@ import { useStore } from "@/lib/app-store";
 import { useT } from "@/lib/settings-context";
 import { RiVerifiedBadgeFill } from "@remixicon/react";
 import type { Poll, Post } from "@/lib/mock-data";
+import { emailFor } from "@/lib/accounts";
 import { cx } from "@/utils/cx";
 import { uid } from "@/utils/uid";
 import { PollView } from "./poll-chart";
@@ -128,7 +129,7 @@ export function PostComposerDialog({ onClose, repostOf }: { onClose: () => void;
                 <Avatar src={repostOf.author.avatar} name={repostOf.author.name} size={24} />
                 <span className="truncate text-sm font-semibold text-ink">{repostOf.author.name}</span>
                 {repostOf.author.verified && <RiVerifiedBadgeFill className="size-3.5 text-accent" />}
-                <span className="truncate text-xs text-muted">@{repostOf.author.handle}</span>
+                <span className="truncate text-xs text-muted">{emailFor(repostOf.author.handle)}</span>
               </div>
               {repostOf.text && <p className="line-clamp-3 px-3 py-2 text-sm text-ink">{repostOf.text}</p>}
               {repostOf.images && repostOf.images[0] && (

@@ -11,8 +11,6 @@ import {
   RiFile3Line,
   RiFileTextLine,
   RiFlagLine,
-  RiHeart3Fill,
-  RiHeart3Line,
   RiImageLine,
   RiLink,
   RiMoreLine,
@@ -23,6 +21,7 @@ import {
 } from "@remixicon/react";
 import { Avatar } from "@/components/ui/avatar";
 import { MediaViewer } from "@/components/ui/media-viewer";
+import { LikeButton } from "@/components/ui/like-button";
 import { useAuth } from "@/lib/auth-context";
 import { useStore } from "@/lib/app-store";
 import { useProfileNav } from "@/lib/profile-nav";
@@ -30,6 +29,7 @@ import { useT } from "@/lib/settings-context";
 import { PEOPLE, type Post, type PostComment } from "@/lib/mock-data";
 import { formatBytes } from "@/utils/image";
 import { linkify } from "@/utils/linkify";
+import { emailFor } from "@/lib/accounts";
 import { cx } from "@/utils/cx";
 import { uid } from "@/utils/uid";
 import { PollView } from "./poll-chart";
@@ -64,6 +64,8 @@ export function PostCard({ post }: { post: Post }) {
   const [open, setOpen] = useState(false);
   const [sort, setSort] = useState<SortOrder>("top");
   const [replyTo, setReplyTo] = useState<PostComment | null>(null);
+  // Threads stay one level deep, so a reply always attaches to the root comment.
+  const [replyRootId, setReplyRootId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [reposting, setReposting] = useState(false);
   const [viewer, setViewer] = useState<number | null>(null);
@@ -91,8 +93,9 @@ export function PostCard({ post }: { post: Post }) {
   });
 
   const submitComment = (draft: CommentDraft) => {
-    addComment(post.id, makeComment(draft), replyTo?.id);
+    addComment(post.id, makeComment(draft), replyRootId ?? undefined);
     setReplyTo(null);
+    setReplyRootId(null);
   };
 
   return (
@@ -178,13 +181,9 @@ export function PostCard({ post }: { post: Post }) {
 
       {/* Actions */}
       <div className="grid grid-cols-3 border-t border-line">
-        <ActionButton
-          active={post.liked}
-          activeClass="text-danger"
-          onClick={() => toggleLike(post.id)}
-          icon={post.liked ? <RiHeart3Fill className="size-5" /> : <RiHeart3Line className="size-5" />}
-          label={t("like")}
-        />
+        <div className="flex items-center justify-center py-3">
+          <LikeButton liked={!!post.liked} onToggle={() => toggleLike(post.id)} aria-label={t("like")} />
+        </div>
         <ActionButton active={open} onClick={() => setOpen((v) => !v)} icon={<RiChat1Line className="size-5" />} label={`${total} ${t("comments")}`} />
         <ActionButton
           active={post.reposted}
@@ -221,7 +220,10 @@ export function PostCard({ post }: { post: Post }) {
                 key={c.id}
                 comment={c}
                 sort={sort}
-                onReply={(comment) => setReplyTo(comment)}
+                onReply={(target, rootId) => {
+                  setReplyTo(target);
+                  setReplyRootId(rootId);
+                }}
                 onLike={(id) => toggleCommentLike(post.id, id)}
                 onOpenPerson={openPerson}
               />
@@ -320,7 +322,7 @@ function QuotedPost({ post, onOpen }: { post: Post; onOpen: () => void }) {
           {post.author.name}
         </button>
         {post.author.verified && <RiVerifiedBadgeFill className="size-3.5 text-accent" />}
-        <span className="truncate text-xs text-muted">@{post.author.handle}</span>
+        <span className="truncate text-xs text-muted">{emailFor(post.author.handle)}</span>
       </div>
       {post.text && <p className="line-clamp-3 px-3 py-2 text-sm text-ink">{post.text}</p>}
       {post.images && post.images[0] && (
@@ -331,22 +333,27 @@ function QuotedPost({ post, onOpen }: { post: Post; onOpen: () => void }) {
   );
 }
 
+/**
+ * A comment thread, TikTok-style: the root comment, then its replies as a flat
+ * list at a single indent. Only the first reply shows until you expand the
+ * rest with "View replies", so long threads stay compact.
+ */
 function CommentRow({
   comment,
   sort,
   onReply,
   onLike,
   onOpenPerson,
-  depth = 0,
 }: {
   comment: PostComment;
   sort: SortOrder;
-  onReply: (comment: PostComment) => void;
+  onReply: (target: PostComment, rootId: string) => void;
   onLike: (id: string) => void;
   onOpenPerson: (handle: string) => void;
-  depth?: number;
 }) {
   const t = useT();
+  const [expanded, setExpanded] = useState(false);
+
   const replies = useMemo(() => {
     const list = [...(comment.replies ?? [])];
     if (sort === "new") list.sort((a, b) => b.createdAt - a.createdAt);
@@ -354,10 +361,58 @@ function CommentRow({
     return list;
   }, [comment.replies, sort]);
 
+  const shown = expanded ? replies : replies.slice(0, 1);
+
+  return (
+    <div className="flex flex-col gap-3">
+      <CommentBody comment={comment} onLike={onLike} onOpenPerson={onOpenPerson} onReply={() => onReply(comment, comment.id)} />
+
+      {replies.length > 0 && (
+        <div className="ml-11 flex flex-col gap-3">
+          {shown.map((r) => (
+            <CommentBody
+              key={r.id}
+              comment={r}
+              small
+              onLike={onLike}
+              onOpenPerson={onOpenPerson}
+              onReply={() => onReply(r, comment.id)}
+            />
+          ))}
+          {replies.length > 1 && (
+            <button
+              onClick={() => setExpanded((v) => !v)}
+              className="flex items-center gap-2 self-start text-xs font-semibold text-muted transition hover:text-ink"
+            >
+              <span className="h-px w-6 bg-line" />
+              {expanded ? t("hideReplies") : `${t("viewReplies")} · ${replies.length}`}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** One comment (root or reply). Replies pass `small` for a tighter avatar. */
+function CommentBody({
+  comment,
+  onReply,
+  onLike,
+  onOpenPerson,
+  small = false,
+}: {
+  comment: PostComment;
+  onReply: () => void;
+  onLike: (id: string) => void;
+  onOpenPerson: (handle: string) => void;
+  small?: boolean;
+}) {
+  const t = useT();
   return (
     <div className="flex gap-2.5">
       <button onClick={() => onOpenPerson(comment.author.handle)} aria-label={comment.author.name} className="shrink-0">
-        <Avatar src={comment.author.avatar} name={comment.author.name} size={depth ? 26 : 32} />
+        <Avatar src={comment.author.avatar} name={comment.author.name} size={small ? 28 : 32} />
       </button>
       <div className="min-w-0 flex-1">
         <div className="rounded-2xl rounded-tl-md bg-surface px-3 py-2">
@@ -397,25 +452,17 @@ function CommentRow({
 
         <div className="mt-1 flex items-center gap-3 pl-1">
           <span className="text-xs text-faint">{comment.time}</span>
-          <button
-            onClick={() => onLike(comment.id)}
-            className={cx("flex items-center gap-1 text-xs font-medium transition", comment.liked ? "text-danger" : "text-muted hover:text-danger")}
-          >
-            {comment.liked ? <RiHeart3Fill className="size-3.5" /> : <RiHeart3Line className="size-3.5" />}
-            {comment.likes > 0 ? compact(comment.likes) : ""}
-          </button>
-          <button onClick={() => onReply(comment)} className="text-xs font-medium text-muted transition hover:text-accent">
+          <LikeButton
+            liked={!!comment.liked}
+            onToggle={() => onLike(comment.id)}
+            count={comment.likes}
+            size={14}
+            className="[&_span:last-child]:text-xs"
+          />
+          <button onClick={onReply} className="text-xs font-medium text-muted transition hover:text-accent">
             {t("reply")}
           </button>
         </div>
-
-        {replies.length > 0 && (
-          <div className="mt-3 flex flex-col gap-3 border-l border-line pl-3">
-            {replies.map((r) => (
-              <CommentRow key={r.id} comment={r} sort={sort} onReply={onReply} onLike={onLike} onOpenPerson={onOpenPerson} depth={depth + 1} />
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -572,7 +619,7 @@ function ActionButton({
   return (
     <button
       onClick={onClick}
-      className={cx("flex items-center justify-center gap-2 py-3 text-sm font-medium transition hover:bg-surface-2", active ? activeClass : "text-muted")}
+      className={cx("flex items-center justify-center gap-2 py-3 text-sm font-medium transition hover:bg-surface-2 active:scale-[0.97]", active ? activeClass : "text-muted")}
     >
       {icon}
       <span className="truncate">{label}</span>

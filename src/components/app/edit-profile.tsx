@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { RiCameraLine, RiCloseLine, RiImageAddLine } from "@remixicon/react";
 import { Avatar } from "@/components/ui/avatar";
 import { CropDialog } from "@/components/ui/crop-dialog";
-import { useAuth, type VionUser } from "@/lib/auth-context";
+import { useAuth, type VoyzenUser } from "@/lib/auth-context";
 import { useT } from "@/lib/settings-context";
 
 const BIO_LIMIT = 240;
@@ -14,7 +14,7 @@ export function EditProfileDialog({
   user,
   onClose,
 }: {
-  user: VionUser;
+  user: VoyzenUser;
   onClose: () => void;
 }) {
   const { updateUser } = useAuth();
@@ -144,7 +144,7 @@ export function EditProfileDialog({
               </div>
 
               <Field label={t("location")} value={location} onChange={setLocation} placeholder="Los Angeles, CA" />
-              <Field label={t("website")} value={website} onChange={setWebsite} placeholder="vion.app" />
+              <Field label={t("website")} value={website} onChange={setWebsite} placeholder="voyzen.app" />
             </div>
           </div>
         </div>

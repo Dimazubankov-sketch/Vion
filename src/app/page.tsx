@@ -3,7 +3,7 @@
 import { useAuth } from "@/lib/auth-context";
 import { AuthScreen } from "@/components/auth/auth-screen";
 import { AppShell } from "@/components/app/app-shell";
-import { VionMark } from "@/components/logo";
+import { VoyzenMark } from "@/components/logo";
 
 export default function Home() {
   const { user, ready } = useAuth();
@@ -12,7 +12,7 @@ export default function Home() {
   if (!ready) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-canvas">
-        <VionMark className="size-10 animate-pulse text-accent" />
+        <VoyzenMark className="size-10 animate-pulse text-accent" />
       </div>
     );
   }

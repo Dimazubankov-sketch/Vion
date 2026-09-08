@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 /* ---------------------------------------------------------------------------
-   Vion design tokens
-   Light-grey app surface, Vion violet accent. Dark theme via .dark on <html>.
+   Voyzen design tokens
+   Light-grey app surface, Voyzen violet accent. Dark theme via .dark on <html>.
 --------------------------------------------------------------------------- */
 :root {
   --canvas: #ececed;          /* app background (light grey) */
@@ -13,7 +13,7 @@
   --ink: #17171b;             /* primary text */
   --muted: #6a6a73;           /* secondary text */
   --faint: #9a9aa3;           /* tertiary text */
-  --accent: #6c5cff;          /* Vion violet */
+  --accent: #6c5cff;          /* Voyzen violet */
   --accent-strong: #5847f0;
   --accent-soft: #efedff;
   --danger: #ef4444;
@@ -131,4 +131,77 @@ body {
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; }
+}
+
+/* ---------------------------------------------------------------------------
+   Like button — heart fill + spring pop + particle burst
+   (adapted from transitions.dev, wired up by <LikeButton>)
+--------------------------------------------------------------------------- */
+:root {
+  --like-color: var(--danger);
+  --like-fill: 150ms;
+  --like-pop: 350ms;
+  --like-pop-ease: cubic-bezier(0.34, 1.96, 0.64, 1);
+  --like-particle-dur: 600ms;
+  --like-particle-size: 3px;
+  --like-ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+.t-like { position: relative; }
+.t-like-icon { display: inline-flex; }
+.t-like-heart { color: currentColor; transition: color var(--like-fill) var(--like-ease); }
+.t-like-heart path {
+  fill: transparent; stroke: currentColor; stroke-width: 2;
+  transition: fill var(--like-fill) var(--like-ease), stroke var(--like-fill) var(--like-ease);
+}
+.t-like[data-liked="true"] .t-like-heart { color: var(--like-color); }
+.t-like[data-liked="true"] .t-like-heart path { fill: currentColor; stroke: currentColor; }
+.t-like[data-liked="true"] .t-like-icon { animation: t-like-pop var(--like-pop) var(--like-pop-ease); }
+@keyframes t-like-pop { 0% { transform: scale(1); } 30% { transform: scale(0.82); } 100% { transform: scale(1); } }
+
+.t-like-particles { position: absolute; left: 50%; top: 45%; width: 0; height: 0; pointer-events: none; color: var(--like-color); }
+.t-like-particles i {
+  position: absolute;
+  left: calc(var(--like-particle-size) * var(--psize, 1) / -2);
+  top: calc(var(--like-particle-size) * var(--psize, 1) / -2);
+  width: calc(var(--like-particle-size) * var(--psize, 1));
+  height: calc(var(--like-particle-size) * var(--psize, 1));
+  border-radius: 50%; background: currentColor; opacity: 0;
+}
+@keyframes t-like-burst {
+  0%   { opacity: 0; transform: translate(0, 0) scale(0.4); }
+  20%  { opacity: 1; transform: translate(calc(var(--px) * 0.25), calc(var(--py) * 0.25)) scale(1); }
+  100% { opacity: 0; transform: translate(var(--px), var(--py)) scale(var(--p-end-scale, 0.6)); }
+}
+.t-like.is-bursting .t-like-particles i {
+  animation: t-like-burst var(--pdur, var(--like-particle-dur)) ease-out var(--pdelay, 0ms) forwards;
+}
+
+/* ---------------------------------------------------------------------------
+   Toggle — thumb travels with a double bounce (from transitions.dev)
+--------------------------------------------------------------------------- */
+:root {
+  --toggle-dur: 350ms;
+  --toggle-ov1: 2px;
+  --toggle-ov2: 0px;
+  --toggle-ease: cubic-bezier(0.34, 1.35, 0.64, 1);
+}
+.t-toggle-thumb { will-change: transform; }
+.t-toggle.is-init[data-on="true"] .t-toggle-thumb { animation: t-toggle-on var(--toggle-dur) var(--toggle-ease) both; }
+.t-toggle.is-init[data-on="false"] .t-toggle-thumb { animation: t-toggle-off var(--toggle-dur) var(--toggle-ease) both; }
+@keyframes t-toggle-on {
+  0% { transform: translateX(0); }
+  55% { transform: translateX(calc(var(--toggle-travel) + var(--toggle-ov1))); }
+  80% { transform: translateX(calc(var(--toggle-travel) - var(--toggle-ov2))); }
+  100% { transform: translateX(var(--toggle-travel)); }
+}
+@keyframes t-toggle-off {
+  0% { transform: translateX(var(--toggle-travel)); }
+  55% { transform: translateX(calc(0px - var(--toggle-ov1))); }
+  80% { transform: translateX(var(--toggle-ov2)); }
+  100% { transform: translateX(0); }
+}
+
+/* A gentle press feedback for tappable controls. */
+@media (prefers-reduced-motion: reduce) {
+  .t-like-icon, .t-like-particles i, .t-toggle-thumb { animation: none !important; }
 }

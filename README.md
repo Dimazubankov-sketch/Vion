@@ -1,7 +1,7 @@
-# Vion
+# Voyzen
 
 Мессенджер в стиле X (Twitter) и Telegram. Светло-серый интерфейс, фиолетовый
-акцент Vion. Next.js 16 (App Router) + TypeScript + Tailwind v4 +
+акцент Voyzen. Next.js 16 (App Router) + TypeScript + Tailwind v4 +
 `react-aria-components` + `@remixicon/react`.
 
 ## Запуск
@@ -36,7 +36,7 @@ src/
     app-store.tsx         # общее состояние: посты, чаты, история лайков
     mock-data.ts          # контакты, чаты, лента
   components/
-    logo.tsx              # знак Vion (public/vion-logo.png) + словесный знак
+    logo.tsx              # знак Voyzen (public/voyzen-logo.png) + словесный знак
     auth/
       auth-card.tsx       # карточка входа/регистрации (аналог BoardUI <AuthCard>)
       auth-screen.tsx     # экран авторизации + Loader после входа
@@ -101,7 +101,7 @@ src/
 - Компоненты BoardUI Pro (`AuthCard`, `DashboardSidebar`, `SettingsModal` и др.)
   требуют платной лицензии Pro и тянут десятки внутренних зависимостей, поэтому
   здесь они воссозданы самостоятельно в том же стиле — проект запускается без Pro.
-- Фирменный знак Vion — `public/vion-logo.png` (он же фавикон, `src/app/icon.png`).
+- Фирменный знак Voyzen — `public/voyzen-logo.png` (он же фавикон, `src/app/icon.png`).
   Чтобы обновить логотип, замени эти два файла.
 - Аватары/фото — заглушки с `i.pravatar.cc` и `picsum.photos` (нужен интернет).
 - GIF добавляется по ссылке: встроенный поиск требует ключа Giphy или Tenor.

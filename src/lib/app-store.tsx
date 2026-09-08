@@ -48,8 +48,8 @@ const DEFAULT_CHAT_SETTINGS: ChatSettings = {
   disappearing: 0,
 };
 
-/** People the user follows out of the box — so "Following" differs from "For you". */
-const INITIAL_FOLLOWED = ["p1", "p2", "p6", "p8"];
+/** Nobody is followed to start with — the Following tab then suggests people. */
+const INITIAL_FOLLOWED: string[] = [];
 
 interface AppStore {
   posts: Post[];
@@ -202,7 +202,19 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       prev.map((p) => {
         if (p.id !== postId || !p.poll) return p;
         const previous = p.poll.votedId;
-        if (previous === optionId) return p;
+        // Voting the option you already picked retracts the vote.
+        if (previous === optionId) {
+          return {
+            ...p,
+            poll: {
+              ...p.poll,
+              votedId: undefined,
+              options: p.poll.options.map((o) =>
+                o.id === optionId ? { ...o, votes: Math.max(0, o.votes - 1) } : o,
+              ),
+            },
+          };
+        }
         return {
           ...p,
           poll: {

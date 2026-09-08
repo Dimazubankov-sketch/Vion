@@ -2,6 +2,7 @@
 
 import { RiCheckLine } from "@remixicon/react";
 import type { Poll } from "@/lib/mock-data";
+import { useT } from "@/lib/settings-context";
 import { cx } from "@/utils/cx";
 
 /** Segment colours, in order. First one is the brand accent. */
@@ -102,9 +103,23 @@ export function PollView({
           </button>
         );
       })}
-      {!compact && <TotalLine total={total} />}
+      {!compact && (
+        <div className="flex items-center gap-3">
+          <TotalLine total={total} />
+          {voted && onVote && poll.votedId && (
+            <button onClick={() => onVote(poll.votedId!)} className="text-xs font-medium text-accent hover:underline">
+              <RetractLabel />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
+}
+
+function RetractLabel() {
+  const t = useT();
+  return <>{t("retractVote")}</>;
 }
 
 function Donut({
@@ -190,6 +205,11 @@ function Donut({
             </button>
           );
         })}
+        {!compact && poll.votedId && onVote && (
+          <button onClick={() => onVote(poll.votedId!)} className="mt-1 self-start px-2 text-xs font-medium text-accent hover:underline">
+            <RetractLabel />
+          </button>
+        )}
       </div>
     </div>
   );

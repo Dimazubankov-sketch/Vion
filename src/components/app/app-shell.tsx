@@ -37,8 +37,8 @@ const NAV: {
   line: React.ComponentType<{ className?: string }>;
   fill: React.ComponentType<{ className?: string }>;
 }[] = [
-  { key: "search", labelKey: "searchTab", line: RiSearchLine, fill: RiSearchFill },
   { key: "home", labelKey: "home", line: RiHome5Line, fill: RiHome5Fill },
+  { key: "search", labelKey: "searchTab", line: RiSearchLine, fill: RiSearchFill },
   { key: "chat", labelKey: "messages", line: RiChat3Line, fill: RiChat3Fill },
 ];
 
@@ -150,10 +150,15 @@ export function AppShell() {
                     }}
                     aria-current={active ? "page" : undefined}
                     aria-label={t(item.labelKey)}
-                    className="relative flex flex-1 flex-col items-center gap-0.5 py-1.5"
+                    className="relative flex flex-1 flex-col items-center gap-0.5 py-1.5 transition-transform active:scale-90"
                   >
                     <span className="relative">
-                      <Icon className={cx("size-6 transition", active ? "text-accent" : "text-faint")} />
+                      <Icon
+                        className={cx(
+                          "size-6 transition-[color,transform] duration-200",
+                          active ? "scale-110 text-accent" : "text-faint",
+                        )}
+                      />
                       {badge > 0 && (
                         <span className="absolute -right-2 -top-1 flex min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-white">
                           {badge}
