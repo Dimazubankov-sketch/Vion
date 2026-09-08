@@ -36,3 +36,14 @@ export function formatBytes(bytes: number) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
+
+/** Duration (seconds) of a video at `url`, read via its metadata. 0 on failure. */
+export function readVideoDuration(url: string): Promise<number> {
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.onloadedmetadata = () => resolve(Number.isFinite(video.duration) ? video.duration : 0);
+    video.onerror = () => resolve(0);
+    video.src = url;
+  });
+}

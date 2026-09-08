@@ -161,37 +161,8 @@ export function ChatInfo({
           </button>
         )}
 
-        {/* Group: members */}
-        {chat.kind === "group" && (
-          <div className="mb-2 px-4">
-            <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-muted">
-              {t("participants")} · {members.length + 1}
-            </p>
-            <div className="overflow-hidden rounded-2xl border border-line bg-surface">
-              <div className="flex items-center gap-3 border-b border-line px-4 py-3">
-                <span className="flex size-10 items-center justify-center rounded-full bg-accent-soft text-sm font-semibold text-accent">
-                  <RiUserSmileLine className="size-5" />
-                </span>
-                <span className="text-sm font-semibold text-ink">You</span>
-              </div>
-              {members.map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => onOpenPerson?.(m)}
-                  className="flex w-full items-center gap-3 border-b border-line px-4 py-3 text-left transition last:border-0 hover:bg-surface-2/50"
-                >
-                  <Avatar src={m.avatar} name={m.name} size={40} online={m.online} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-ink">{m.name}</p>
-                    <p className="truncate text-xs text-muted">{emailFor(m.handle)}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Shared media library */}
+        {/* Shared media library — sits right after identity in both chat kinds, so
+            the tabs land in the same place whether or not there's a member list. */}
         <div className="sticky top-[57px] z-10 flex gap-1 overflow-x-auto border-y border-line bg-surface/95 px-3 py-2 backdrop-blur">
           {tabs.map((tb) => (
             <button
@@ -293,6 +264,36 @@ export function ChatInfo({
               </div>
             ))}
         </div>
+
+        {/* Group: members */}
+        {chat.kind === "group" && (
+          <div className="px-4 pb-4">
+            <p className="mb-2 px-1 text-xs font-semibold uppercase tracking-wide text-muted">
+              {t("participants")} · {members.length + 1}
+            </p>
+            <div className="overflow-hidden rounded-2xl border border-line bg-surface">
+              <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+                <span className="flex size-10 items-center justify-center rounded-full bg-accent-soft text-sm font-semibold text-accent">
+                  <RiUserSmileLine className="size-5" />
+                </span>
+                <span className="text-sm font-semibold text-ink">You</span>
+              </div>
+              {members.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => onOpenPerson?.(m)}
+                  className="flex w-full items-center gap-3 border-b border-line px-4 py-3 text-left transition last:border-0 hover:bg-surface-2/50"
+                >
+                  <Avatar src={m.avatar} name={m.name} size={40} online={m.online} />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold text-ink">{m.name}</p>
+                    <p className="truncate text-xs text-muted">{emailFor(m.handle)}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {viewer && (

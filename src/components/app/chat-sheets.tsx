@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   RiCheckLine,
   RiCloseLine,
@@ -17,21 +18,28 @@ import { Avatar } from "@/components/ui/avatar";
 import { ToggleVisual } from "@/components/ui/toggle";
 import { useStore } from "@/lib/app-store";
 import { useT } from "@/lib/settings-context";
-import { chatAvatar, chatTitle, type Chat } from "@/lib/mock-data";
+import { chatAvatar, chatTitle, type Chat, type ChatMessage } from "@/lib/mock-data";
+import { BubbleBody, bubbleShellClass } from "./chat-bubble";
 import { cx } from "@/utils/cx";
 
-/** Bottom-sheet shell used by every chat sheet. */
+/**
+ * Shell used by chat sheets. By default it's a bottom sheet on mobile (and
+ * centred on wide screens); pass `center` to always open centred in the chat
+ * screen instead of pinned to the bottom.
+ */
 function Sheet({
   title,
   onClose,
+  center = false,
   children,
 }: {
   title?: string;
   onClose: () => void;
+  center?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className="absolute inset-0 z-[70] flex items-end justify-center sm:items-center">
+    <div className={cx("absolute inset-0 z-[70] flex justify-center", center ? "items-center p-4" : "items-end sm:items-center")}>
       <button
         aria-label="Close"
         onClick={onClose}
@@ -40,7 +48,10 @@ function Sheet({
       <div
         role="dialog"
         aria-modal="true"
-        className="relative flex max-h-[88%] w-full flex-col overflow-hidden rounded-t-3xl border border-line bg-surface shadow-float animate-slide-up-in sm:m-4 sm:max-w-sm sm:rounded-3xl"
+        className={cx(
+          "relative flex max-h-[88%] w-full flex-col overflow-hidden border border-line bg-surface shadow-float",
+          center ? "max-w-sm rounded-3xl animate-pop-in" : "rounded-t-3xl animate-slide-up-in sm:m-4 sm:max-w-sm sm:rounded-3xl",
+        )}
       >
         {title && (
           <div className="flex items-center gap-3 border-b border-line px-4 py-3">
@@ -125,7 +136,7 @@ export function ChatMoreSheet({
   }
 
   return (
-    <Sheet title={chatTitle(chat)} onClose={onClose}>
+    <Sheet title={chatTitle(chat)} onClose={onClose} center>
       <Row
         icon={<RiTimer2Line className="size-5 text-muted" />}
         label={t("disappearing")}
@@ -219,7 +230,7 @@ export function ReportSheet({
   const [sent, setSent] = useState(false);
 
   return (
-    <Sheet title={`${t("report")}: ${name}`} onClose={onClose}>
+    <Sheet title={`${t("report")}: ${name}`} onClose={onClose} center>
       {sent ? (
         <p className="px-3 py-6 text-center text-sm text-muted">{t("reportThanks")}</p>
       ) : (
@@ -301,7 +312,17 @@ export function ForwardPicker({
 }
 
 /** The per-message action menu (delete / edit / forward / copy / select). */
-export function MessageMenu({
+/**
+ * The per-message action menu. Instead of a bottom sheet, this opens right
+ * under the long-pressed message: the backdrop blurs the whole chat while a
+ * frozen, sharp clone of that one message floats above the blur next to the
+ * menu, so it reads as "everything but this message and the menu is blurred".
+ */
+export function MessageActionMenu({
+  message,
+  rect,
+  mine,
+  isGroup,
   canEdit,
   canForward,
   onClose,
@@ -311,6 +332,10 @@ export function MessageMenu({
   onSelect,
   onDelete,
 }: {
+  message: ChatMessage;
+  rect: DOMRect;
+  mine: boolean;
+  isGroup: boolean;
   canEdit: boolean;
   canForward: boolean;
   onClose: () => void;
@@ -322,26 +347,88 @@ export function MessageMenu({
 }) {
   const t = useT();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
-  return (
-    <Sheet onClose={onClose}>
-      {!deleteOpen ? (
-        <>
-          {canEdit && <Row icon={<RiCheckLine className="size-5 text-muted" />} label={t("editMessage")} onClick={onEdit} />}
-          <Row icon={<RiImage2Line className="size-5 text-muted" />} label={t("copyText")} onClick={onCopy} />
-          {canForward && (
-            <Row icon={<RiShareForwardLine className="size-5 text-muted" />} label={t("forwardMessage")} onClick={onForward} />
-          )}
-          <Row icon={<RiCheckLine className="size-5 text-muted" />} label={t("selectMessages")} onClick={onSelect} />
-          <Row danger icon={<RiDeleteBin6Line className="size-5" />} label={t("deleteMessage")} onClick={() => setDeleteOpen(true)} />
-        </>
-      ) : (
-        <>
-          {canEdit && <Row danger label={t("deleteForEveryone")} onClick={() => onDelete("everyone")} />}
-          <Row danger label={t("deleteForMe")} onClick={() => onDelete("me")} />
-          <Row label={t("cancel")} onClick={() => setDeleteOpen(false)} />
-        </>
-      )}
-    </Sheet>
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; ready: boolean }>({
+    top: rect.bottom + 8,
+    left: rect.left,
+    ready: false,
+  });
+
+  // Measure the menu once it's rendered, then flip above / clamp to the
+  // viewport so it never spills off-screen regardless of where the message sits.
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+    const menuRect = el.getBoundingClientRect();
+    const margin = 12;
+    let top = rect.bottom + 8;
+    if (top + menuRect.height > window.innerHeight - margin) {
+      top = rect.top - 8 - menuRect.height;
+    }
+    top = Math.max(margin, Math.min(top, window.innerHeight - menuRect.height - margin));
+    let left = mine ? rect.right - menuRect.width : rect.left;
+    left = Math.max(margin, Math.min(left, window.innerWidth - menuRect.width - margin));
+    setPos({ top, left, ready: true });
+    // `mounted` flips true on the render that first attaches menuRef inside the
+    // portal — it has to be a dependency or this effect never re-measures.
+  }, [rect, mine, deleteOpen, mounted]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[85]">
+      <button
+        aria-label={t("close")}
+        onClick={onClose}
+        className="absolute inset-0 cursor-default bg-black/10 backdrop-blur-md animate-fade-in"
+      />
+
+      {/* A sharp, frozen clone of the pressed message — it sits above the
+          blurred backdrop so it (and the menu) read as un-blurred. */}
+      <div
+        className={cx("pointer-events-none fixed", bubbleShellClass(message, mine))}
+        style={{ top: rect.top, left: rect.left, width: rect.width }}
+      >
+        <BubbleBody message={message} mine={mine} isGroup={isGroup} />
+      </div>
+
+      <div
+        ref={menuRef}
+        role="menu"
+        className={cx(
+          "fixed w-52 overflow-hidden rounded-2xl border border-line bg-surface shadow-float transition-opacity duration-150",
+          pos.ready ? "opacity-100" : "opacity-0",
+        )}
+        style={{ top: pos.top, left: pos.left }}
+      >
+        {!deleteOpen ? (
+          <>
+            {canEdit && <Row icon={<RiCheckLine className="size-5 text-muted" />} label={t("editMessage")} onClick={onEdit} />}
+            <Row icon={<RiImage2Line className="size-5 text-muted" />} label={t("copyText")} onClick={onCopy} />
+            {canForward && (
+              <Row icon={<RiShareForwardLine className="size-5 text-muted" />} label={t("forwardMessage")} onClick={onForward} />
+            )}
+            <Row icon={<RiCheckLine className="size-5 text-muted" />} label={t("selectMessages")} onClick={onSelect} />
+            <Row danger icon={<RiDeleteBin6Line className="size-5" />} label={t("deleteMessage")} onClick={() => setDeleteOpen(true)} />
+          </>
+        ) : (
+          <>
+            {canEdit && <Row danger label={t("deleteForEveryone")} onClick={() => onDelete("everyone")} />}
+            <Row danger label={t("deleteForMe")} onClick={() => onDelete("me")} />
+            <Row label={t("cancel")} onClick={() => setDeleteOpen(false)} />
+          </>
+        )}
+      </div>
+    </div>,
+    document.body,
   );
 }

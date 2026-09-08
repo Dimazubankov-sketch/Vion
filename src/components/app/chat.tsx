@@ -9,8 +9,6 @@ import {
   RiCheckLine,
   RiCloseLine,
   RiDeleteBin6Line,
-  RiDownload2Line,
-  RiFile3Line,
   RiFileTextLine,
   RiImageLine,
   RiLock2Line,
@@ -32,22 +30,19 @@ import {
   chatAvatar,
   chatOnline,
   chatTitle,
-  PEOPLE,
   type Chat,
   type ChatMessage,
   type Person,
 } from "@/lib/mock-data";
-import { formatBytes } from "@/utils/image";
-import { linkify } from "@/utils/linkify";
+import { formatBytes, readVideoDuration } from "@/utils/image";
 import { cx } from "@/utils/cx";
 import { uid } from "@/utils/uid";
 import { NewGroupDialog } from "./new-group-dialog";
 import { ChatInfo } from "./chat-info";
-import { ChatMoreSheet, ForwardPicker, MessageMenu } from "./chat-sheets";
+import { BubbleBody, bubbleShellClass } from "./chat-bubble";
+import { ChatMoreSheet, ForwardPicker, MessageActionMenu } from "./chat-sheets";
 import {
   LevelMeter,
-  VideoMessage,
-  VoiceMessage,
   formatTime,
   useMediaRecorder,
   type RecordKind,
@@ -255,7 +250,7 @@ function Conversation({
   const [draft, setDraft] = useState("");
   const [attachOpen, setAttachOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
-  const [menuFor, setMenuFor] = useState<ChatMessage | null>(null);
+  const [menuFor, setMenuFor] = useState<{ message: ChatMessage; rect: DOMRect } | null>(null);
   const [forwarding, setForwarding] = useState<ChatMessage | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectMode, setSelectMode] = useState(false);
@@ -300,9 +295,14 @@ function Conversation({
     if (!list || list.length === 0) return;
     const files = Array.from(list);
     const images = files.filter((f) => f.type.startsWith("image/"));
-    const others = files.filter((f) => !f.type.startsWith("image/"));
+    const videos = files.filter((f) => f.type.startsWith("video/"));
+    const others = files.filter((f) => !f.type.startsWith("image/") && !f.type.startsWith("video/"));
 
     if (images.length > 0) onSend({ images: images.map((f) => URL.createObjectURL(f)) });
+    videos.forEach((f) => {
+      const url = URL.createObjectURL(f);
+      void readVideoDuration(url).then((duration) => onSend({ video: { url, duration } }));
+    });
     others.forEach((f) =>
       onSend({ file: { name: f.name, size: formatBytes(f.size), url: URL.createObjectURL(f) } }),
     );
@@ -426,7 +426,7 @@ function Conversation({
             selectMode={selectMode}
             selected={selected.has(m.id)}
             onSelectToggle={() => toggleSelect(m.id)}
-            onMenu={() => setMenuFor(m)}
+            onMenu={(rect) => setMenuFor({ message: m, rect })}
             onOpenImages={(images, index) => setViewer({ items: images, index })}
           />
         ))}
@@ -499,26 +499,30 @@ function Conversation({
       {moreOpen && <ChatMoreSheet chat={chat} onClose={() => setMoreOpen(false)} onCleared={() => setMoreOpen(false)} />}
 
       {menuFor && (
-        <MessageMenu
-          canEdit={menuFor.from === "me" && !!menuFor.text && !menuFor.audio && !menuFor.video}
+        <MessageActionMenu
+          message={menuFor.message}
+          rect={menuFor.rect}
+          mine={menuFor.message.from === "me"}
+          isGroup={chat.kind === "group"}
+          canEdit={menuFor.message.from === "me" && !!menuFor.message.text && !menuFor.message.audio && !menuFor.message.video}
           canForward={!settings.forwarding}
           onClose={() => setMenuFor(null)}
           onCopy={() => {
-            if (menuFor.text) navigator.clipboard?.writeText(menuFor.text).catch(() => {});
+            if (menuFor.message.text) navigator.clipboard?.writeText(menuFor.message.text).catch(() => {});
             setMenuFor(null);
           }}
-          onEdit={() => startEdit(menuFor)}
+          onEdit={() => startEdit(menuFor.message)}
           onForward={() => {
-            setForwarding(menuFor);
+            setForwarding(menuFor.message);
             setMenuFor(null);
           }}
           onSelect={() => {
             setSelectMode(true);
-            setSelected(new Set([menuFor.id]));
+            setSelected(new Set([menuFor.message.id]));
             setMenuFor(null);
           }}
           onDelete={(scope) => {
-            deleteMessages(chat.id, [menuFor.id], scope);
+            deleteMessages(chat.id, [menuFor.message.id], scope);
             setMenuFor(null);
           }}
         />
@@ -740,23 +744,21 @@ function Bubble({
   selectMode: boolean;
   selected: boolean;
   onSelectToggle: () => void;
-  onMenu: () => void;
+  onMenu: (rect: DOMRect) => void;
   onOpenImages: (images: string[], index: number) => void;
 }) {
   const t = useT();
   const mine = message.from === "me";
-  const hasImages = !!message.images?.length;
-  const author = isGroup && !mine ? PEOPLE.find((p) => p.id === message.authorId) : undefined;
-  const bare = hasImages || !!message.audio || !!message.video;
 
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (holdTimer.current) clearTimeout(holdTimer.current); }, []);
 
   // Long-press opens the message menu — unless the press was on a link.
-  const onPointerDown = (e: React.PointerEvent) => {
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (selectMode) return;
     if ((e.target as HTMLElement).closest("a")) return;
-    holdTimer.current = setTimeout(onMenu, 450);
+    const rect = e.currentTarget.getBoundingClientRect();
+    holdTimer.current = setTimeout(() => onMenu(rect), 450);
   };
   const clearHold = () => {
     if (holdTimer.current) clearTimeout(holdTimer.current);
@@ -785,77 +787,11 @@ function Bubble({
         onContextMenu={(e) => {
           if ((e.target as HTMLElement).closest("a")) return;
           e.preventDefault();
-          onMenu();
+          onMenu(e.currentTarget.getBoundingClientRect());
         }}
-        className={cx(
-          "max-w-[80%] overflow-hidden rounded-2xl text-[15px] leading-relaxed shadow-sm",
-          hasImages ? "w-64 p-1" : bare ? "px-2.5 py-2" : "px-3.5 py-2",
-          mine ? "rounded-br-md bg-accent text-white" : "rounded-bl-md bg-surface-2 text-ink",
-          selectMode && "cursor-pointer",
-        )}
+        className={bubbleShellClass(message, mine, selectMode)}
       >
-        {author && <p className="px-1 pb-0.5 text-xs font-semibold text-accent">{author.name}</p>}
-
-        {message.forwardedFrom && (
-          <p className={cx("px-1 pb-0.5 text-xs italic", mine ? "text-white/70" : "text-muted")}>
-            {t("forwardedFrom")} {message.forwardedFrom}
-          </p>
-        )}
-
-        {hasImages && (
-          <div className="grid grid-cols-2 gap-1">
-            {message.images!.slice(0, 4).map((src, i) => (
-              <button
-                key={`${src}-${i}`}
-                onClick={(e) => {
-                  if (selectMode) return;
-                  e.stopPropagation();
-                  onOpenImages(message.images!, i);
-                }}
-                className="relative"
-              >
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={src} alt="" className="h-28 w-full rounded-lg object-cover" />
-                {i === 3 && message.images!.length > 4 && (
-                  <span className="absolute inset-0 flex items-center justify-center rounded-lg bg-black/45 text-lg font-semibold text-white">
-                    +{message.images!.length - 4}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {message.audio && <VoiceMessage audio={message.audio} mine={mine} />}
-        {message.video && <VideoMessage video={message.video} mine={mine} />}
-
-        {message.file && (
-          <a
-            href={message.file.url}
-            download={message.file.name}
-            onClick={(e) => e.stopPropagation()}
-            className={cx("flex items-center gap-2.5 rounded-xl p-1.5 transition", mine ? "hover:bg-white/10" : "hover:bg-surface-3")}
-          >
-            <span className={cx("flex size-10 shrink-0 items-center justify-center rounded-lg", mine ? "bg-white/20 text-white" : "bg-accent-soft text-accent")}>
-              <RiFile3Line className="size-5" />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium">{message.file.name}</span>
-              <span className={cx("block text-xs", mine ? "text-white/70" : "text-muted")}>{message.file.size}</span>
-            </span>
-            {message.file.url && <RiDownload2Line className={cx("size-4 shrink-0", mine ? "text-white/70" : "text-muted")} />}
-          </a>
-        )}
-
-        {message.text && (
-          <p className={cx("whitespace-pre-wrap", hasImages && "px-2 py-1")}>{linkify(message.text, mine)}</p>
-        )}
-
-        <div className={cx("mt-0.5 flex items-center justify-end gap-1 text-[11px]", hasImages && "px-2 pb-1", mine ? "text-white/70" : "text-faint")}>
-          {message.edited && <span className="italic">{t("edited")}</span>}
-          {message.time}
-          {mine && <RiCheckDoubleLine className={cx("size-3.5", message.read ? "" : "opacity-60")} />}
-        </div>
+        <BubbleBody message={message} mine={mine} isGroup={isGroup} onOpenImages={selectMode ? undefined : onOpenImages} />
       </div>
     </div>
   );

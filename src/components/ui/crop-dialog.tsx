@@ -1,25 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { RiCloseLine, RiZoomInLine } from "@remixicon/react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { RiCheckLine, RiCloseLine, RiRefreshLine } from "@remixicon/react";
 import { useT } from "@/lib/settings-context";
 import { cx } from "@/utils/cx";
 
 type Shape = "avatar" | "cover";
 
-const VIEWPORT: Record<Shape, { w: number; h: number }> = {
-  avatar: { w: 264, h: 264 },
-  cover: { w: 320, h: 120 },
-};
 const OUTPUT: Record<Shape, { w: number; h: number }> = {
   avatar: { w: 512, h: 512 },
   cover: { w: 1200, h: 450 },
 };
 
+const MAX_ZOOM = 3;
+
 /**
- * Position-and-zoom crop. The picked image is shown inside a fixed viewport;
- * drag to move, use the slider to zoom, and Apply renders the visible region to
- * a canvas at the target size. Avatars crop square, covers crop wide.
+ * Full-screen native-style crop: a dark stage with the pick framed by a
+ * dimmed mask (circular for avatars, rounded-wide for covers), one finger to
+ * pan, two to pinch-zoom, and a reset button. Apply renders the visible
+ * region to a canvas at the target output size.
  */
 export function CropDialog({
   src,
@@ -33,12 +32,30 @@ export function CropDialog({
   onApply: (dataUrl: string) => void;
 }) {
   const t = useT();
-  const vp = VIEWPORT[shape];
   const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const imgRef = useRef<HTMLImageElement | null>(null);
-  const drag = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+
+  // The stage viewport, sized to fill the available screen space.
+  const [box, setBox] = useState({ w: 375, h: 700 });
+  useEffect(() => {
+    const measure = () => setBox({ w: window.innerWidth, h: window.innerHeight });
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, []);
+
+  const vp = useMemo(() => {
+    const stageW = Math.max(160, box.w - 48);
+    const stageH = Math.max(160, box.h - 220);
+    if (shape === "avatar") {
+      const size = Math.min(stageW, stageH, 420);
+      return { w: size, h: size };
+    }
+    const w = Math.min(stageW, 480);
+    return { w, h: w * (OUTPUT.cover.h / OUTPUT.cover.w) };
+  }, [box, shape]);
 
   useEffect(() => {
     const image = new Image();
@@ -68,23 +85,68 @@ export function CropDialog({
   useEffect(() => {
     setOffset((o) => clamp(o));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [zoom, nat]);
+  }, [zoom, nat, vp.w, vp.h]);
+
+  // One finger pans, two fingers pinch-zoom — tracked by pointer id so either
+  // gesture can hand off to the other mid-touch without jumping.
+  const pointers = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const pinch = useRef<{ dist: number; zoom: number } | null>(null);
+  const pan = useRef<{ x: number; y: number; ox: number; oy: number } | null>(null);
+
+  const dist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
 
   const onPointerDown = (e: React.PointerEvent) => {
     e.currentTarget.setPointerCapture(e.pointerId);
-    drag.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (pointers.current.size === 2) {
+      const [a, b] = [...pointers.current.values()];
+      pinch.current = { dist: dist(a, b) || 1, zoom };
+      pan.current = null;
+    } else if (pointers.current.size === 1) {
+      pan.current = { x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
+    }
   };
+
   const onPointerMove = (e: React.PointerEvent) => {
-    if (!drag.current) return;
-    setOffset(
-      clamp({
-        x: drag.current.ox + (e.clientX - drag.current.x),
-        y: drag.current.oy + (e.clientY - drag.current.y),
-      }),
-    );
+    if (!pointers.current.has(e.pointerId)) return;
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointers.current.size === 2 && pinch.current) {
+      const [a, b] = [...pointers.current.values()];
+      const ratio = dist(a, b) / pinch.current.dist;
+      setZoom(Math.min(MAX_ZOOM, Math.max(1, pinch.current.zoom * ratio)));
+      return;
+    }
+    if (pointers.current.size === 1 && pan.current) {
+      setOffset(
+        clamp({
+          x: pan.current.ox + (e.clientX - pan.current.x),
+          y: pan.current.oy + (e.clientY - pan.current.y),
+        }),
+      );
+    }
   };
-  const onPointerUp = () => {
-    drag.current = null;
+
+  const endPointer = (e: React.PointerEvent) => {
+    pointers.current.delete(e.pointerId);
+    if (pointers.current.size === 1) {
+      const [[, p]] = pointers.current;
+      pan.current = { x: p.x, y: p.y, ox: offset.x, oy: offset.y };
+      pinch.current = null;
+    } else {
+      pan.current = null;
+      pinch.current = null;
+    }
+  };
+
+  const onWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    setZoom((z) => Math.min(MAX_ZOOM, Math.max(1, z - e.deltaY * 0.0015)));
+  };
+
+  const reset = () => {
+    setZoom(1);
+    setOffset({ x: 0, y: 0 });
   };
 
   const apply = () => {
@@ -106,82 +168,76 @@ export function CropDialog({
     onApply(canvas.toDataURL("image/jpeg", 0.9));
   };
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onCancel();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onCancel]);
+
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 p-4 animate-fade-in">
-      <div className="w-full max-w-sm rounded-3xl border border-line bg-surface p-4 shadow-float animate-pop-in">
-        <div className="mb-3 flex items-center gap-3">
-          <h2 className="flex-1 text-base font-semibold text-ink">{t("adjustPhoto")}</h2>
-          <button
-            onClick={onCancel}
-            aria-label={t("close")}
-            className="flex size-8 items-center justify-center rounded-full text-muted transition hover:bg-surface-3"
-          >
-            <RiCloseLine className="size-5" />
-          </button>
-        </div>
+    <div className="fixed inset-0 z-[90] flex flex-col bg-black animate-fade-in">
+      {/* Header */}
+      <div className="flex shrink-0 items-center justify-between px-2 py-3">
+        <button
+          onClick={onCancel}
+          aria-label={t("cancel")}
+          className="flex size-10 items-center justify-center rounded-full text-white/90 transition hover:bg-white/10"
+        >
+          <RiCloseLine className="size-6" />
+        </button>
+        <span className="text-[15px] font-semibold text-white">{t("adjustPhoto")}</span>
+        <button
+          onClick={apply}
+          disabled={!nat}
+          aria-label={t("apply")}
+          className="flex size-10 items-center justify-center rounded-full text-accent transition hover:bg-white/10 disabled:opacity-40"
+        >
+          <RiCheckLine className="size-6" />
+        </button>
+      </div>
 
-        {/* Crop viewport */}
-        <div className="flex justify-center">
-          <div
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
-            className={cx(
-              "relative touch-none select-none overflow-hidden bg-surface-2",
-              shape === "avatar" ? "rounded-full" : "rounded-2xl",
-            )}
-            style={{ width: vp.w, height: vp.h, cursor: "grab" }}
-          >
-            {nat && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={src}
-                alt=""
-                draggable={false}
-                className="pointer-events-none absolute left-1/2 top-1/2 max-w-none"
-                style={{
-                  width: dispW,
-                  height: dispH,
-                  transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px))`,
-                }}
-              />
-            )}
-            {/* Framing overlay */}
-            <div className="pointer-events-none absolute inset-0 ring-2 ring-white/60 ring-inset" />
-          </div>
+      {/* Stage */}
+      <div className="flex flex-1 items-center justify-center overflow-hidden">
+        <div
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={endPointer}
+          onPointerCancel={endPointer}
+          onWheel={onWheel}
+          className={cx(
+            "relative touch-none select-none overflow-hidden bg-white/5",
+            shape === "avatar" ? "rounded-full" : "rounded-3xl",
+          )}
+          style={{ width: vp.w, height: vp.h, boxShadow: "0 0 0 9999px rgba(0,0,0,0.78)", cursor: "grab" }}
+        >
+          {nat && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={src}
+              alt=""
+              draggable={false}
+              className="pointer-events-none absolute left-1/2 top-1/2 max-w-none"
+              style={{
+                width: dispW,
+                height: dispH,
+                transform: `translate(calc(-50% + ${offset.x}px), calc(-50% + ${offset.y}px))`,
+              }}
+            />
+          )}
+          <div className="pointer-events-none absolute inset-0 ring-1 ring-white/50 ring-inset" />
         </div>
+      </div>
 
-        {/* Zoom */}
-        <div className="mt-4 flex items-center gap-3">
-          <RiZoomInLine className="size-5 shrink-0 text-muted" />
-          <input
-            type="range"
-            min={1}
-            max={3}
-            step={0.01}
-            value={zoom}
-            onChange={(e) => setZoom(Number(e.target.value))}
-            aria-label={t("zoomLabel")}
-            className="h-1.5 flex-1 cursor-pointer accent-[var(--accent)]"
-          />
-        </div>
-
-        <div className="mt-4 flex gap-2">
-          <button
-            onClick={onCancel}
-            className="h-11 flex-1 rounded-xl border border-line bg-surface text-sm font-medium text-ink transition hover:bg-surface-3"
-          >
-            {t("cancel")}
-          </button>
-          <button
-            onClick={apply}
-            disabled={!nat}
-            className="h-11 flex-1 rounded-xl bg-accent text-sm font-semibold text-white transition hover:bg-accent-strong disabled:opacity-50"
-          >
-            {t("apply")}
-          </button>
-        </div>
+      {/* Footer */}
+      <div className="flex shrink-0 items-center justify-center pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-2">
+        <button
+          onClick={reset}
+          aria-label={t("reset")}
+          title={t("reset")}
+          className="flex size-12 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20 active:scale-95"
+        >
+          <RiRefreshLine className="size-6" />
+        </button>
       </div>
     </div>
   );

@@ -265,6 +265,7 @@ const en = {
   tabVoice: "Voice",
   tabLinks: "Links",
   emptySection: "Nothing here yet",
+  reset: "Reset",
 };
 
 export type TranslationKey = keyof typeof en;
@@ -515,6 +516,7 @@ const ru: Dict = {
   tabVoice: "Голосовые",
   tabLinks: "Ссылки",
   emptySection: "Здесь пока пусто",
+  reset: "Сбросить",
 };
 
 const es: Dict = {
@@ -755,6 +757,7 @@ const es: Dict = {
   tabVoice: "Voz",
   tabLinks: "Enlaces",
   emptySection: "Aun no hay nada aqui",
+  reset: "Restablecer",
 };
 
 const de: Dict = {
@@ -995,6 +998,7 @@ const de: Dict = {
   tabVoice: "Sprache",
   tabLinks: "Links",
   emptySection: "Noch nichts hier",
+  reset: "Zuruecksetzen",
 };
 
 const fr: Dict = {
@@ -1235,6 +1239,7 @@ const fr: Dict = {
   tabVoice: "Voix",
   tabLinks: "Liens",
   emptySection: "Rien ici pour le moment",
+  reset: "Reinitialiser",
 };
 
 export const DICTS: Record<Lang, Dict> = { en, ru, es, de, fr };
