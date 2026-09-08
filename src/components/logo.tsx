@@ -1,8 +1,13 @@
 /* eslint-disable @next/next/no-img-element */
 import { cx } from "@/utils/cx";
 
-/** Path to the official Vion mark (public/vion-logo.png). */
-export const VION_LOGO_SRC = "/vion-logo.png";
+/**
+ * Path to the official Vion mark (public/vion-logo.png).
+ *
+ * Plain <img> tags don't get Next's basePath applied automatically, so the
+ * GitHub Pages subfolder has to be prefixed by hand.
+ */
+export const VION_LOGO_SRC = `${process.env.NEXT_PUBLIC_BASE_PATH ?? ""}/vion-logo.png`;
 
 /** Vion brand mark — the official logo asset. */
 export function VionMark({
