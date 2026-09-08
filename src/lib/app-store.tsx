@@ -12,6 +12,7 @@ import {
 } from "react";
 import {
   CHATS,
+  PEOPLE,
   POSTS,
   type Chat,
   type ChatMessage,
@@ -29,7 +30,26 @@ export interface NewPostInput {
   images?: string[];
   poll?: Poll;
   location?: string;
+  /** Set for a quote-repost. */
+  repostOf?: Post;
 }
+
+/** Per-chat toggles that live outside the message list. */
+export interface ChatSettings {
+  screenshots: boolean;
+  forwarding: boolean;
+  /** Disappearing TTL in seconds; 0 = off. */
+  disappearing: number;
+}
+
+const DEFAULT_CHAT_SETTINGS: ChatSettings = {
+  screenshots: false,
+  forwarding: false,
+  disappearing: 0,
+};
+
+/** People the user follows out of the box — so "Following" differs from "For you". */
+const INITIAL_FOLLOWED = ["p1", "p2", "p6", "p8"];
 
 interface AppStore {
   posts: Post[];
@@ -38,16 +58,31 @@ interface AppStore {
   repostedPosts: Post[];
   toggleLike: (id: string) => void;
   toggleRepost: (id: string) => void;
-  /** `parentId` turns the comment into a reply to that comment. */
+  /** Quote-repost: a new post that embeds `original`. */
+  repost: (original: Post, text: string) => void;
+  hidePost: (id: string) => void;
   addComment: (postId: string, comment: PostComment, parentId?: string) => void;
   toggleCommentLike: (postId: string, commentId: string) => void;
   votePoll: (postId: string, optionId: string) => void;
   addPost: (input: NewPostInput) => void;
 
+  /** Which people the user follows. */
+  isFollowing: (personId: string) => boolean;
+  toggleFollow: (personId: string) => void;
+
   chats: Chat[];
   appendMessage: (chatId: string, message: ChatMessage) => void;
+  editMessage: (chatId: string, messageId: string, text: string) => void;
+  deleteMessages: (chatId: string, messageIds: string[], scope: "me" | "everyone") => void;
+  forwardMessage: (message: ChatMessage, toChatId: string) => void;
+  clearHistory: (chatId: string) => void;
   markChatRead: (chatId: string) => void;
   createGroup: (name: string, members: Person[]) => Chat;
+
+  chatSettings: (chatId: string) => ChatSettings;
+  setChatSetting: <K extends keyof ChatSettings>(chatId: string, key: K, value: ChatSettings[K]) => void;
+  isBlocked: (chatId: string) => boolean;
+  toggleBlock: (chatId: string) => void;
 }
 
 const StoreContext = createContext<AppStore | null>(null);
@@ -60,9 +95,7 @@ function mapComment(
 ): PostComment[] {
   return comments.map((c) => {
     if (c.id === id) return fn(c);
-    if (c.replies?.length) {
-      return { ...c, replies: mapComment(c.replies, id, fn) };
-    }
+    if (c.replies?.length) return { ...c, replies: mapComment(c.replies, id, fn) };
     return c;
   });
 }
@@ -71,9 +104,11 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [posts, setPosts] = useState<Post[]>(POSTS);
   const [chats, setChats] = useState<Chat[]>(CHATS);
+  const [followed, setFollowed] = useState<Set<string>>(new Set(INITIAL_FOLLOWED));
+  const [settings, setSettings] = useState<Record<string, ChatSettings>>({});
+  const [blocked, setBlocked] = useState<Record<string, boolean>>({});
 
-  // Signing out and back in shouldn't leave the previous account's posts and
-  // read state lying around.
+  // Signing out and back in shouldn't leave the previous account's state around.
   const lastHandle = useRef<string | null>(user?.handle ?? null);
   useEffect(() => {
     const handle = user?.handle ?? null;
@@ -81,8 +116,31 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       lastHandle.current = handle;
       setPosts(POSTS);
       setChats(CHATS);
+      setFollowed(new Set(INITIAL_FOLLOWED));
+      setSettings({});
+      setBlocked({});
     }
   }, [user?.handle]);
+
+  // Sweep out expired disappearing messages once a second.
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = Date.now();
+      setChats((prev) => {
+        let changed = false;
+        const next = prev.map((c) => {
+          const kept = c.messages.filter((m) => !m.expiresAt || m.expiresAt > now);
+          if (kept.length !== c.messages.length) {
+            changed = true;
+            return { ...c, messages: kept };
+          }
+          return c;
+        });
+        return changed ? next : prev;
+      });
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
 
   const toggleLike = useCallback((id: string) => {
     setPosts((prev) =>
@@ -100,6 +158,10 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
           : p,
       ),
     );
+  }, []);
+
+  const hidePost = useCallback((id: string) => {
+    setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, hidden: true } : p)));
   }, []);
 
   const addComment = useCallback((postId: string, comment: PostComment, parentId?: string) => {
@@ -157,18 +219,21 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
+  const meAuthor = useCallback((): Person => {
+    return {
+      id: "me",
+      name: user?.name ?? "You",
+      handle: user?.handle ?? "you",
+      avatar: user?.avatar ?? "",
+    };
+  }, [user]);
+
   const addPost = useCallback(
-    ({ text, images, poll, location }: NewPostInput) => {
+    ({ text, images, poll, location, repostOf }: NewPostInput) => {
       if (!user) return;
-      const me: Person = {
-        id: "me",
-        name: user.name,
-        handle: user.handle,
-        avatar: user.avatar ?? "",
-      };
       const post: Post = {
         id: uid("p"),
-        author: me,
+        author: meAuthor(),
         time: new Date().toLocaleString(undefined, {
           weekday: "long",
           month: "short",
@@ -180,6 +245,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
         text,
         images,
         poll,
+        repostOf,
         likes: 0,
         likers: [],
         comments: [],
@@ -189,8 +255,27 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       };
       setPosts((prev) => [post, ...prev]);
     },
-    [user],
+    [meAuthor, user],
   );
+
+  const repost = useCallback(
+    (original: Post, text: string) => {
+      // Bump the original's share count and add a quote post to the top.
+      setPosts((prev) => prev.map((p) => (p.id === original.id ? { ...p, shares: p.shares + 1, reposted: true } : p)));
+      addPost({ text, repostOf: { ...original, repostOf: undefined } });
+    },
+    [addPost],
+  );
+
+  const isFollowing = useCallback((personId: string) => followed.has(personId), [followed]);
+  const toggleFollow = useCallback((personId: string) => {
+    setFollowed((prev) => {
+      const next = new Set(prev);
+      if (next.has(personId)) next.delete(personId);
+      else next.add(personId);
+      return next;
+    });
+  }, []);
 
   const appendMessage = useCallback((chatId: string, message: ChatMessage) => {
     setChats((prev) =>
@@ -198,7 +283,76 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     );
   }, []);
 
-  /** Opening a chat clears its unread badge. */
+  const editMessage = useCallback((chatId: string, messageId: string, text: string) => {
+    setChats((prev) =>
+      prev.map((c) =>
+        c.id === chatId
+          ? {
+              ...c,
+              messages: c.messages.map((m) =>
+                m.id === messageId ? { ...m, text, edited: true } : m,
+              ),
+            }
+          : c,
+      ),
+    );
+  }, []);
+
+  const deleteMessages = useCallback(
+    (chatId: string, messageIds: string[], _scope: "me" | "everyone") => {
+      // Without a backend both scopes remove the message locally.
+      const ids = new Set(messageIds);
+      setChats((prev) =>
+        prev.map((c) =>
+          c.id === chatId
+            ? { ...c, messages: c.messages.filter((m) => !ids.has(m.id)) }
+            : c,
+        ),
+      );
+    },
+    [],
+  );
+
+  const forwardMessage = useCallback((message: ChatMessage, toChatId: string) => {
+    const fromName = chats.find((c) =>
+      c.messages.some((m) => m.id === message.id),
+    );
+    const label = fromName
+      ? fromName.kind === "group"
+        ? fromName.name
+        : fromName.person?.name
+      : undefined;
+    setChats((prev) =>
+      prev.map((c) =>
+        c.id === toChatId
+          ? {
+              ...c,
+              messages: [
+                ...c.messages,
+                {
+                  ...message,
+                  id: uid("s"),
+                  from: "me",
+                  authorId: undefined,
+                  read: false,
+                  edited: false,
+                  expiresAt: undefined,
+                  forwardedFrom: label && label !== "You" ? label : message.forwardedFrom,
+                  time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+                },
+              ],
+            }
+          : c,
+      ),
+    );
+  }, [chats]);
+
+  const clearHistory = useCallback((chatId: string) => {
+    setChats((prev) =>
+      prev.map((c) => (c.id === chatId ? { ...c, messages: [], unread: 0 } : c)),
+    );
+  }, []);
+
   const markChatRead = useCallback((chatId: string) => {
     setChats((prev) =>
       prev.map((c) => (c.id === chatId && c.unread > 0 ? { ...c, unread: 0 } : c)),
@@ -226,42 +380,86 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     return chat;
   }, []);
 
-  const likedPosts = useMemo(() => posts.filter((p) => p.liked), [posts]);
-  const myPosts = useMemo(() => posts.filter((p) => p.mine), [posts]);
-  const repostedPosts = useMemo(() => posts.filter((p) => p.reposted), [posts]);
+  const chatSettings = useCallback(
+    (chatId: string) => settings[chatId] ?? DEFAULT_CHAT_SETTINGS,
+    [settings],
+  );
+  const setChatSetting = useCallback(
+    <K extends keyof ChatSettings>(chatId: string, key: K, value: ChatSettings[K]) => {
+      setSettings((prev) => ({
+        ...prev,
+        [chatId]: { ...DEFAULT_CHAT_SETTINGS, ...prev[chatId], [key]: value },
+      }));
+    },
+    [],
+  );
+
+  const isBlocked = useCallback((chatId: string) => !!blocked[chatId], [blocked]);
+  const toggleBlock = useCallback((chatId: string) => {
+    setBlocked((prev) => ({ ...prev, [chatId]: !prev[chatId] }));
+  }, []);
+
+  const visiblePosts = useMemo(() => posts.filter((p) => !p.hidden), [posts]);
+  const likedPosts = useMemo(() => visiblePosts.filter((p) => p.liked), [visiblePosts]);
+  const myPosts = useMemo(() => visiblePosts.filter((p) => p.mine), [visiblePosts]);
+  const repostedPosts = useMemo(() => visiblePosts.filter((p) => p.reposted), [visiblePosts]);
 
   const value = useMemo(
     () => ({
-      posts,
+      posts: visiblePosts,
       likedPosts,
       myPosts,
       repostedPosts,
       toggleLike,
       toggleRepost,
+      repost,
+      hidePost,
       addComment,
       toggleCommentLike,
       votePoll,
       addPost,
+      isFollowing,
+      toggleFollow,
       chats,
       appendMessage,
+      editMessage,
+      deleteMessages,
+      forwardMessage,
+      clearHistory,
       markChatRead,
       createGroup,
+      chatSettings,
+      setChatSetting,
+      isBlocked,
+      toggleBlock,
     }),
     [
-      posts,
+      visiblePosts,
       likedPosts,
       myPosts,
       repostedPosts,
       toggleLike,
       toggleRepost,
+      repost,
+      hidePost,
       addComment,
       toggleCommentLike,
       votePoll,
       addPost,
+      isFollowing,
+      toggleFollow,
       chats,
       appendMessage,
+      editMessage,
+      deleteMessages,
+      forwardMessage,
+      clearHistory,
       markChatRead,
       createGroup,
+      chatSettings,
+      setChatSetting,
+      isBlocked,
+      toggleBlock,
     ],
   );
 
@@ -273,3 +471,6 @@ export function useStore() {
   if (!ctx) throw new Error("useStore must be used within <AppStoreProvider>");
   return ctx;
 }
+
+/** Everyone the app knows about — used by the search screen. */
+export { PEOPLE };

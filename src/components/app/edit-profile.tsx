@@ -3,9 +3,9 @@
 import { useRef, useState } from "react";
 import { RiCameraLine, RiCloseLine, RiImageAddLine } from "@remixicon/react";
 import { Avatar } from "@/components/ui/avatar";
+import { CropDialog } from "@/components/ui/crop-dialog";
 import { useAuth, type VionUser } from "@/lib/auth-context";
 import { useT } from "@/lib/settings-context";
-import { fileToDataUrl } from "@/utils/image";
 
 const BIO_LIMIT = 240;
 
@@ -29,16 +29,12 @@ export function EditProfileDialog({
 
   const avatarInput = useRef<HTMLInputElement>(null);
   const bannerInput = useRef<HTMLInputElement>(null);
+  // The picked file, shown in the crop dialog until the user confirms.
+  const [cropping, setCropping] = useState<{ src: string; field: "avatar" | "banner" } | null>(null);
 
-  const pick = async (file: File | undefined, field: "avatar" | "banner") => {
+  const pick = (file: File | undefined, field: "avatar" | "banner") => {
     if (!file) return;
-    try {
-      const dataUrl = await fileToDataUrl(file, field === "avatar" ? 480 : 1200);
-      if (field === "avatar") setAvatar(dataUrl);
-      else setBanner(dataUrl);
-    } catch {
-      /* ignore unreadable files */
-    }
+    setCropping({ src: URL.createObjectURL(file), field });
   };
 
   const save = () => {
@@ -113,7 +109,7 @@ export function EditProfileDialog({
             <button
               onClick={() => avatarInput.current?.click()}
               aria-label={t("changePhoto")}
-              className="group relative -mt-10 rounded-full border-4 border-surface"
+              className="group relative -mt-10 inline-flex rounded-full border-4 border-surface"
             >
               <Avatar src={avatar} name={name} size={80} />
               <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 opacity-0 transition group-hover:opacity-100">
@@ -168,6 +164,19 @@ export function EditProfileDialog({
           </button>
         </div>
       </div>
+
+      {cropping && (
+        <CropDialog
+          src={cropping.src}
+          shape={cropping.field === "avatar" ? "avatar" : "cover"}
+          onCancel={() => setCropping(null)}
+          onApply={(dataUrl) => {
+            if (cropping.field === "avatar") setAvatar(dataUrl);
+            else setBanner(dataUrl);
+            setCropping(null);
+          }}
+        />
+      )}
     </div>
   );
 }

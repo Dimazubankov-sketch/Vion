@@ -14,6 +14,7 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { useStore } from "@/lib/app-store";
 import { useT } from "@/lib/settings-context";
+import { useProfileNav } from "@/lib/profile-nav";
 import { PEOPLE } from "@/lib/mock-data";
 import type { VionUser } from "@/lib/auth-context";
 import { cx } from "@/utils/cx";
@@ -68,7 +69,7 @@ export function Profile({ user, onBack }: { user: VionUser; onBack: () => void }
             <button
               onClick={() => setEditing(true)}
               aria-label={t("changePhoto")}
-              className="group relative rounded-full border-4 border-surface"
+              className="group relative inline-flex rounded-full border-4 border-surface"
             >
               <Avatar src={user.avatar} name={user.name} size={80} />
               <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 opacity-0 transition group-hover:opacity-100">
@@ -195,6 +196,7 @@ function PeoplePanel({
   onClose: () => void;
 }) {
   const t = useT();
+  const { openPerson } = useProfileNav();
   const list = tab === "following" ? PEOPLE : [...PEOPLE].reverse();
 
   return (
@@ -232,16 +234,20 @@ function PeoplePanel({
 
       <div className="scroll-clean min-h-0 flex-1 overflow-y-auto">
         {list.map((p) => (
-          <div key={p.id} className="flex items-center gap-3 border-b border-line px-4 py-3">
+          <button
+            key={p.id}
+            onClick={() => openPerson(p)}
+            className="flex w-full items-center gap-3 border-b border-line px-4 py-3 text-left transition hover:bg-surface-2/50"
+          >
             <Avatar src={p.avatar} name={p.name} size={44} online={p.online} />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold text-ink">{p.name}</p>
               <p className="truncate text-xs text-muted">@{p.handle}</p>
             </div>
-            <button className="rounded-full border border-line px-3.5 py-1.5 text-sm font-medium text-ink transition hover:bg-surface-3">
+            <span className="rounded-full border border-line px-3.5 py-1.5 text-sm font-medium text-ink">
               {tab === "following" ? t("following") : "Follow"}
-            </button>
-          </div>
+            </span>
+          </button>
         ))}
       </div>
     </div>

@@ -6,23 +6,29 @@ import {
   RiChat3Line,
   RiHome5Fill,
   RiHome5Line,
+  RiSearchFill,
+  RiSearchLine,
 } from "@remixicon/react";
 import { Avatar } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth-context";
 import { useStore } from "@/lib/app-store";
 import { useIsDesktop, useT } from "@/lib/settings-context";
 import { useEdgeSwipe } from "@/lib/use-edge-swipe";
+import { ProfileNavProvider } from "@/lib/profile-nav";
+import type { Person } from "@/lib/mock-data";
 import type { TranslationKey } from "@/lib/i18n";
 import { cx } from "@/utils/cx";
 import { Feed } from "./feed";
+import { Search } from "./search";
 import { ChatView } from "./chat";
 import { DRAWER_WIDTH, SidebarDrawer, SidebarRail } from "./sidebar";
 import { Profile } from "./profile";
+import { PersonProfile } from "./person-profile";
 import { History } from "./history";
 import { Settings } from "./settings";
 import { CallOverlay, MinimizedCall, type CallKind, type CallSession } from "./call";
 
-export type AppTab = "home" | "chat";
+export type AppTab = "search" | "home" | "chat";
 type Overlay = "profile" | "history" | "settings" | null;
 
 const NAV: {
@@ -31,6 +37,7 @@ const NAV: {
   line: React.ComponentType<{ className?: string }>;
   fill: React.ComponentType<{ className?: string }>;
 }[] = [
+  { key: "search", labelKey: "searchTab", line: RiSearchLine, fill: RiSearchFill },
   { key: "home", labelKey: "home", line: RiHome5Line, fill: RiHome5Fill },
   { key: "chat", labelKey: "messages", line: RiChat3Line, fill: RiChat3Fill },
 ];
@@ -45,25 +52,22 @@ export function AppShell() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [railCollapsed, setRailCollapsed] = useState(false);
   const [overlay, setOverlay] = useState<Overlay>(null);
+  const [person, setPerson] = useState<Person | null>(null);
   const [conversationOpen, setConversationOpen] = useState(false);
   const [call, setCall] = useState<CallSession | null>(null);
   const [callMinimized, setCallMinimized] = useState(false);
 
   const onConversationChange = useCallback((open: boolean) => setConversationOpen(open), []);
-
-  const startCall = useCallback(
-    (name: string, avatar: string | undefined, kind: CallKind) => {
-      setCall({ name, avatar, kind, startedAt: Date.now() });
-      setCallMinimized(false);
-    },
-    [],
-  );
+  const startCall = useCallback((name: string, avatar: string | undefined, kind: CallKind) => {
+    setCall({ name, avatar, kind, startedAt: Date.now() });
+    setCallMinimized(false);
+  }, []);
+  const openPerson = useCallback((p: Person) => setPerson(p), []);
 
   const unreadChats = useMemo(() => chats.reduce((n, c) => n + c.unread, 0), [chats]);
 
-  // Swipe from the left edge opens the drawer; a drag closes it again.
   const swipe = useEdgeSwipe({
-    enabled: !isDesktop && !overlay && !conversationOpen && !(call && !callMinimized),
+    enabled: !isDesktop && !overlay && !person && !conversationOpen && !(call && !callMinimized),
     open: sidebarOpen,
     setOpen: setSidebarOpen,
     width: DRAWER_WIDTH,
@@ -98,120 +102,108 @@ export function AppShell() {
   const showChrome = !conversationOpen || isDesktop;
 
   return (
-    <div className="flex h-dvh w-full justify-center bg-canvas">
-      {isDesktop && (
-        <div className="h-dvh">
-          <SidebarRail
-            {...sidebarProps}
-            collapsed={railCollapsed}
-            onToggleCollapsed={() => setRailCollapsed((v) => !v)}
-          />
-        </div>
-      )}
-
-      <div
-        {...swipe.handlers}
-        className={cx(
-          "relative flex h-dvh w-full flex-col overflow-hidden bg-surface touch-pan-y",
-          isDesktop
-            ? "max-w-[1000px] flex-1"
-            : "max-w-[460px] shadow-panel sm:border-x sm:border-line",
-        )}
-      >
-        {/* Home has no header — the feed's search bar is the header. */}
-        {tab !== "home" && showChrome && (
-          <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line px-3">
-            {avatarButton}
-            <h1 className="text-base font-bold text-ink">{t("messages")}</h1>
-          </header>
+    <ProfileNavProvider openPerson={openPerson}>
+      {/* Desktop pins the rail to the left instead of centring the whole block. */}
+      <div className={cx("flex h-dvh w-full bg-canvas", isDesktop ? "justify-start" : "justify-center")}>
+        {isDesktop && (
+          <div className="h-dvh">
+            <SidebarRail {...sidebarProps} collapsed={railCollapsed} onToggleCollapsed={() => setRailCollapsed((v) => !v)} />
+          </div>
         )}
 
-        <main className={cx("min-h-0 flex-1", tab === "chat" ? "flex flex-col" : "")}>
-          {tab === "home" && <Feed leading={avatarButton} />}
-          {tab === "chat" && (
-            <ChatView onConversationChange={onConversationChange} onStartCall={startCall} />
+        <div
+          {...swipe.handlers}
+          className={cx(
+            "relative flex h-dvh w-full flex-col overflow-hidden bg-surface touch-pan-y",
+            isDesktop ? "max-w-[1000px] flex-1" : "max-w-[460px] shadow-panel sm:border-x sm:border-line",
           )}
-        </main>
+        >
+          {/* Home & Search own their headers; Messages gets a simple bar. */}
+          {tab === "chat" && showChrome && (
+            <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line px-3">
+              {avatarButton}
+              <h1 className="text-base font-bold text-ink">{t("messages")}</h1>
+            </header>
+          )}
 
-        {/* Bottom nav — mobile only */}
-        {!isDesktop && showChrome && (
-          <nav className="flex h-16 shrink-0 items-center justify-around border-t border-line bg-surface px-2 pb-[env(safe-area-inset-bottom)]">
-            {NAV.map((item) => {
-              const active = tab === item.key;
-              const Icon = active ? item.fill : item.line;
-              const badge = item.key === "chat" ? unreadChats : 0;
-              return (
-                <button
-                  key={item.key}
-                  onClick={() => {
-                    setTab(item.key);
-                    setOverlay(null);
-                  }}
-                  aria-current={active ? "page" : undefined}
-                  aria-label={t(item.labelKey)}
-                  className="relative flex flex-1 flex-col items-center gap-0.5 py-1.5"
-                >
-                  <span className="relative">
-                    <Icon className={cx("size-6 transition", active ? "text-accent" : "text-faint")} />
-                    {badge > 0 && (
-                      <span className="absolute -right-2 -top-1 flex min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-white">
-                        {badge}
-                      </span>
-                    )}
-                  </span>
-                  <span className={cx("text-[11px] font-medium transition", active ? "text-accent" : "text-faint")}>
-                    {t(item.labelKey)}
-                  </span>
-                </button>
-              );
-            })}
-          </nav>
-        )}
+          <main className={cx("min-h-0 flex-1", tab === "chat" ? "flex flex-col" : "")}>
+            {tab === "home" && <Feed leading={avatarButton} />}
+            {tab === "search" && <Search leading={avatarButton} />}
+            {tab === "chat" && (
+              <ChatView onConversationChange={onConversationChange} onStartCall={startCall} onOpenPerson={openPerson} />
+            )}
+          </main>
 
-        {/* Mobile drawer */}
-        {!isDesktop && (
-          <SidebarDrawer
-            {...sidebarProps}
-            open={sidebarOpen}
-            onClose={() => setSidebarOpen(false)}
-            progress={swipe.progress}
-            dragging={swipe.dragging}
-          />
-        )}
+          {/* Bottom nav — mobile only */}
+          {!isDesktop && showChrome && (
+            <nav className="flex h-16 shrink-0 items-center justify-around border-t border-line bg-surface px-2 pb-[env(safe-area-inset-bottom)]">
+              {NAV.map((item) => {
+                const active = tab === item.key;
+                const Icon = active ? item.fill : item.line;
+                const badge = item.key === "chat" ? unreadChats : 0;
+                return (
+                  <button
+                    key={item.key}
+                    onClick={() => {
+                      setTab(item.key);
+                      setOverlay(null);
+                    }}
+                    aria-current={active ? "page" : undefined}
+                    aria-label={t(item.labelKey)}
+                    className="relative flex flex-1 flex-col items-center gap-0.5 py-1.5"
+                  >
+                    <span className="relative">
+                      <Icon className={cx("size-6 transition", active ? "text-accent" : "text-faint")} />
+                      {badge > 0 && (
+                        <span className="absolute -right-2 -top-1 flex min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-semibold text-white">
+                          {badge}
+                        </span>
+                      )}
+                    </span>
+                    <span className={cx("text-[11px] font-medium transition", active ? "text-accent" : "text-faint")}>
+                      {t(item.labelKey)}
+                    </span>
+                  </button>
+                );
+              })}
+            </nav>
+          )}
 
-        {/* Full-surface overlays */}
-        {overlay === "profile" && (
-          <div className="absolute inset-0 z-50 bg-surface animate-slide-in-left">
-            <Profile user={user} onBack={() => setOverlay(null)} />
-          </div>
-        )}
-        {overlay === "history" && (
-          <div className="absolute inset-0 z-50 bg-surface animate-slide-in-left">
-            <History onBack={() => setOverlay(null)} />
-          </div>
-        )}
-        {overlay === "settings" && (
-          <div className="absolute inset-0 z-50 bg-surface animate-slide-in-left">
-            <Settings onBack={() => setOverlay(null)} />
-          </div>
-        )}
+          {/* Mobile drawer */}
+          {!isDesktop && (
+            <SidebarDrawer {...sidebarProps} open={sidebarOpen} onClose={() => setSidebarOpen(false)} progress={swipe.progress} dragging={swipe.dragging} />
+          )}
 
-        {/* A minimised call keeps running while the rest of the app stays usable */}
-        {call && callMinimized && (
-          <MinimizedCall
-            session={call}
-            onRestore={() => setCallMinimized(false)}
-            onEnd={() => setCall(null)}
-          />
-        )}
-        {call && !callMinimized && (
-          <CallOverlay
-            session={call}
-            onEnd={() => setCall(null)}
-            onMinimize={() => setCallMinimized(true)}
-          />
-        )}
+          {/* Full-surface overlays */}
+          {overlay === "profile" && (
+            <div className="absolute inset-0 z-50 bg-surface animate-slide-in-left">
+              <Profile user={user} onBack={() => setOverlay(null)} />
+            </div>
+          )}
+          {overlay === "history" && (
+            <div className="absolute inset-0 z-50 bg-surface animate-slide-in-left">
+              <History onBack={() => setOverlay(null)} />
+            </div>
+          )}
+          {overlay === "settings" && (
+            <div className="absolute inset-0 z-50 bg-surface animate-slide-in-left">
+              <Settings onBack={() => setOverlay(null)} />
+            </div>
+          )}
+          {person && (
+            <div className="absolute inset-0 z-[52] bg-surface animate-slide-in-left">
+              <PersonProfile person={person} onBack={() => setPerson(null)} />
+            </div>
+          )}
+
+          {call && callMinimized && (
+            <MinimizedCall session={call} onRestore={() => setCallMinimized(false)} onEnd={() => setCall(null)} />
+          )}
+          {call && !callMinimized && (
+            <CallOverlay session={call} onEnd={() => setCall(null)} onMinimize={() => setCallMinimized(true)} />
+          )}
+        </div>
       </div>
-    </div>
+    </ProfileNavProvider>
   );
 }

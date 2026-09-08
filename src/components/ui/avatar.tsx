@@ -30,7 +30,7 @@ export function Avatar({
   const photo = src || undefined;
   return (
     <span
-      className={cx("relative inline-flex shrink-0", className)}
+      className={cx("relative inline-flex shrink-0 align-middle leading-none", className)}
       style={{ width: size, height: size }}
     >
       <span

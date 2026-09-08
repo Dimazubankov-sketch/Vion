@@ -8,6 +8,7 @@ import {
   RiHome5Line,
   RiLogoutBoxRLine,
   RiMoonLine,
+  RiSearchLine,
   RiSettings4Line,
   RiSidebarFoldLine,
   RiSidebarUnfoldLine,
@@ -71,6 +72,7 @@ function Panel({
 
   const rows: Row[] = [
     { key: "home", labelKey: "home", icon: RiHome5Line },
+    { key: "search", labelKey: "searchTab", icon: RiSearchLine },
     { key: "chat", labelKey: "messages", icon: RiChat3Line, badge: unread.chat },
     { key: "history", labelKey: "history", icon: RiHistoryLine },
     { key: "profile", labelKey: "profile", icon: RiUserSmileLine },
@@ -147,7 +149,7 @@ function Panel({
 
         <nav className="flex flex-col gap-1">
           {rows.map((row) => {
-            const selected = row.key !== "profile" && row.key !== "history" && row.key === tab;
+            const selected = row.key === tab;
             const Icon = row.icon;
             return (
               <button

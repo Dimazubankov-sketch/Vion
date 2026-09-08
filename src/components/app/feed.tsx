@@ -1,58 +1,53 @@
 "use client";
 
 import { useMemo, useState, type ReactNode } from "react";
-import { RiAddLine, RiCloseLine, RiSearchLine } from "@remixicon/react";
-import { useStore } from "@/lib/app-store";
+import { RiAddLine } from "@remixicon/react";
+import { useStore, PEOPLE } from "@/lib/app-store";
 import { useT } from "@/lib/settings-context";
 import { PostCard } from "./post-card";
 import { PostComposerDialog } from "./post-composer";
 
+type FeedTab = "forYou" | "following";
+
 /**
- * The feed owns the top of the screen: there is no separate app header here,
- * the search field is the header. `leading` is where the shell drops the
- * avatar/menu button on small screens.
+ * The feed owns the top of the screen. Instead of a search box (search has its
+ * own tab now), the header is a For you / Following switch. `leading` is where
+ * the shell drops the avatar/menu button on small screens.
  */
 export function Feed({ leading }: { leading?: ReactNode }) {
-  const { posts } = useStore();
+  const { posts, isFollowing } = useStore();
   const t = useT();
-  const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<FeedTab>("forYou");
   const [composing, setComposing] = useState(false);
 
   const shown = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return posts;
-    return posts.filter(
-      (p) =>
-        p.text.toLowerCase().includes(q) ||
-        p.author.name.toLowerCase().includes(q) ||
-        p.author.handle.toLowerCase().includes(q) ||
-        p.location?.toLowerCase().includes(q),
-    );
-  }, [posts, query]);
+    if (tab === "forYou") return posts;
+    // Following: my own posts plus posts by people I follow.
+    return posts.filter((p) => {
+      if (p.mine) return true;
+      const person = PEOPLE.find((x) => x.handle === p.author.handle);
+      return person ? isFollowing(person.id) : false;
+    });
+  }, [posts, tab, isFollowing]);
 
   return (
     <div className="relative h-full">
       <div className="scroll-clean h-full overflow-y-auto bg-canvas">
-        {/* Search doubles as the header */}
-        <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-line bg-canvas/90 px-3 py-3 backdrop-blur">
+        {/* Header: avatar (mobile) + For you / Following */}
+        <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-line bg-canvas/90 px-3 py-2 backdrop-blur">
           {leading}
-          <div className="flex flex-1 items-center gap-2 rounded-full bg-surface px-3.5 py-2.5 shadow-panel">
-            <RiSearchLine className="size-5 shrink-0 text-faint" />
-            <input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t("searchPosts")}
-              className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-faint"
-            />
-            {query && (
-              <button
-                onClick={() => setQuery("")}
-                aria-label={t("close")}
-                className="flex size-5 shrink-0 items-center justify-center rounded-full bg-surface-3 text-muted transition hover:text-ink"
-              >
-                <RiCloseLine className="size-3.5" />
-              </button>
-            )}
+          <div className="flex flex-1 justify-center">
+            <div className="flex gap-1 rounded-full bg-surface p-1 shadow-panel">
+              {(["forYou", "following"] as const).map((key) => (
+                <button
+                  key={key}
+                  onClick={() => setTab(key)}
+                  className={cxTab(tab === key)}
+                >
+                  {key === "forYou" ? t("forYou") : t("following")}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -68,7 +63,6 @@ export function Feed({ leading }: { leading?: ReactNode }) {
         </div>
       </div>
 
-      {/* Publish straight from the feed */}
       <button
         onClick={() => setComposing(true)}
         aria-label={t("newPost")}
@@ -80,4 +74,11 @@ export function Feed({ leading }: { leading?: ReactNode }) {
       {composing && <PostComposerDialog onClose={() => setComposing(false)} />}
     </div>
   );
+}
+
+function cxTab(active: boolean) {
+  return [
+    "rounded-full px-5 py-1.5 text-sm font-semibold transition",
+    active ? "bg-accent text-white" : "text-muted hover:text-ink",
+  ].join(" ");
 }

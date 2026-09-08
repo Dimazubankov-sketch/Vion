@@ -16,7 +16,8 @@ import { Avatar } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth-context";
 import { useStore } from "@/lib/app-store";
 import { useT } from "@/lib/settings-context";
-import type { Poll } from "@/lib/mock-data";
+import { RiVerifiedBadgeFill } from "@remixicon/react";
+import type { Poll, Post } from "@/lib/mock-data";
 import { cx } from "@/utils/cx";
 import { uid } from "@/utils/uid";
 import { PollView } from "./poll-chart";
@@ -27,11 +28,16 @@ const MAX_OPTIONS = 4;
 
 type Panel = "camera" | "poll" | "location" | "gif" | null;
 
-/** Compose and publish a post: text, photos, a camera shot, a poll, a place, a GIF. */
-export function PostComposerDialog({ onClose }: { onClose: () => void }) {
+/**
+ * Compose and publish a post: text, photos, a camera shot, a poll, a place, a
+ * GIF. With `repostOf` set it becomes a quote-repost: the original is embedded
+ * and publishing adds your comment on top of it.
+ */
+export function PostComposerDialog({ onClose, repostOf }: { onClose: () => void; repostOf?: Post }) {
   const { user } = useAuth();
-  const { addPost } = useStore();
+  const { addPost, repost } = useStore();
   const t = useT();
+  const isRepost = !!repostOf;
 
   const [text, setText] = useState("");
   const [images, setImages] = useState<string[]>([]);
@@ -42,18 +48,20 @@ export function PostComposerDialog({ onClose }: { onClose: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const pollReady = poll ? poll.options.filter((o) => o.text.trim()).length >= 2 : true;
-  const canPublish = !!(text.trim() || images.length || poll) && pollReady;
+  const canPublish = (isRepost || !!(text.trim() || images.length || poll)) && pollReady;
 
   const publish = () => {
     if (!canPublish) return;
-    addPost({
-      text: text.trim(),
-      images: images.length ? images : undefined,
-      location: location.trim() || undefined,
-      poll: poll
-        ? { ...poll, options: poll.options.filter((o) => o.text.trim()) }
-        : undefined,
-    });
+    if (repostOf) {
+      repost(repostOf, text.trim());
+    } else {
+      addPost({
+        text: text.trim(),
+        images: images.length ? images : undefined,
+        location: location.trim() || undefined,
+        poll: poll ? { ...poll, options: poll.options.filter((o) => o.text.trim()) } : undefined,
+      });
+    }
     onClose();
   };
 
@@ -89,7 +97,7 @@ export function PostComposerDialog({ onClose }: { onClose: () => void }) {
           >
             <RiCloseLine className="size-5" />
           </button>
-          <h2 className="flex-1 text-base font-semibold text-ink">{t("newPost")}</h2>
+          <h2 className="flex-1 text-base font-semibold text-ink">{isRepost ? t("quoteRepost") : t("newPost")}</h2>
           <button
             onClick={publish}
             disabled={!canPublish}
@@ -107,11 +115,28 @@ export function PostComposerDialog({ onClose }: { onClose: () => void }) {
               value={text}
               maxLength={LIMIT}
               onChange={(e) => setText(e.target.value)}
-              rows={4}
-              placeholder={t("whatsHappening")}
-              className="min-h-24 flex-1 resize-none bg-transparent text-[15px] leading-relaxed text-ink outline-none placeholder:text-faint"
+              rows={isRepost ? 2 : 4}
+              placeholder={isRepost ? t("addThoughts") : t("whatsHappening")}
+              className="min-h-16 flex-1 resize-none bg-transparent text-[15px] leading-relaxed text-ink outline-none placeholder:text-faint"
             />
           </div>
+
+          {/* Quoted original */}
+          {repostOf && (
+            <div className="mt-3 overflow-hidden rounded-2xl border border-line">
+              <div className="flex items-center gap-2 px-3 pt-3">
+                <Avatar src={repostOf.author.avatar} name={repostOf.author.name} size={24} />
+                <span className="truncate text-sm font-semibold text-ink">{repostOf.author.name}</span>
+                {repostOf.author.verified && <RiVerifiedBadgeFill className="size-3.5 text-accent" />}
+                <span className="truncate text-xs text-muted">@{repostOf.author.handle}</span>
+              </div>
+              {repostOf.text && <p className="line-clamp-3 px-3 py-2 text-sm text-ink">{repostOf.text}</p>}
+              {repostOf.images && repostOf.images[0] && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={repostOf.images[0]} alt="" className="h-40 w-full object-cover" />
+              )}
+            </div>
+          )}
 
           {location && (
             <div className="mt-3 flex w-fit items-center gap-1.5 rounded-full bg-accent-soft px-3 py-1.5 text-sm font-medium text-accent">
@@ -175,8 +200,8 @@ export function PostComposerDialog({ onClose }: { onClose: () => void }) {
           )}
         </div>
 
-        {/* Toolbar */}
-        <div className="border-t border-line p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+        {/* Toolbar — a quote-repost only needs your words */}
+        <div className={cx("border-t border-line p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]", isRepost && "hidden")}>
           <input
             ref={fileRef}
             type="file"

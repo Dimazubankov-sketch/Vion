@@ -6,6 +6,11 @@ export interface Person {
   handle: string;
   avatar: string;
   online?: boolean;
+  bio?: string;
+  banner?: string;
+  following?: number;
+  followers?: number;
+  verified?: boolean;
 }
 
 /** A non-image attachment (pdf, zip, doc…). */
@@ -44,6 +49,12 @@ export interface ChatMessage {
   video?: VideoAttachment;
   time: string;
   read?: boolean;
+  /** The text was changed after sending. */
+  edited?: boolean;
+  /** Name of the chat this was forwarded from. */
+  forwardedFrom?: string;
+  /** For disappearing messages — epoch ms when it self-destructs. */
+  expiresAt?: number;
 }
 
 export interface Chat {
@@ -110,6 +121,12 @@ export interface Post {
   reposted?: boolean;
   /** Authored by the signed-in user — drives the profile's Posts tab. */
   mine?: boolean;
+  /** A quote-repost embeds the original post here. */
+  repostOf?: Post;
+  /** Hidden via "Not interested". */
+  hidden?: boolean;
+  /** Simple tags for the search screen. */
+  tags?: string[];
 }
 
 /** Hours ago, as an epoch timestamp — demo comments need a real ordering. */
@@ -118,15 +135,17 @@ const ago = (hours: number) => Date.now() - hours * 3_600_000;
 const avatar = (n: number) => `https://i.pravatar.cc/200?img=${n}`;
 const photo = (id: number, w = 800, h = 600) => `https://picsum.photos/id/${id}/${w}/${h}`;
 
+const banner = (id: number) => `https://picsum.photos/id/${id}/1200/400`;
+
 export const PEOPLE: Person[] = [
-  { id: "p1", name: "Jacquenetta Slowgrave", handle: "jacqs", avatar: avatar(12), online: true },
-  { id: "p2", name: "Nickola Peever", handle: "nickola", avatar: avatar(33), online: true },
-  { id: "p3", name: "Farand Hume", handle: "farand", avatar: avatar(15), online: false },
-  { id: "p4", name: "Ossie Peasey", handle: "ossie", avatar: avatar(51), online: true },
-  { id: "p5", name: "Hall Negri", handle: "halln", avatar: avatar(45), online: false },
-  { id: "p6", name: "Elyssa Segot", handle: "elyssa", avatar: avatar(9), online: true },
-  { id: "p7", name: "Gil Wilfing", handle: "gilw", avatar: avatar(60), online: false },
-  { id: "p8", name: "Ray Hammond", handle: "rayh", avatar: avatar(68), online: true },
+  { id: "p1", name: "Jacquenetta Slowgrave", handle: "jacqs", avatar: avatar(12), online: true, verified: true, bio: "Landscape photographer. Chasing light in the mountains. 🏔️", banner: banner(1018), following: 512, followers: 24800 },
+  { id: "p2", name: "Nickola Peever", handle: "nickola", avatar: avatar(33), online: true, bio: "Product designer. Empty states are underrated.", banner: banner(1043), following: 340, followers: 8900 },
+  { id: "p3", name: "Farand Hume", handle: "farand", avatar: avatar(15), online: false, bio: "Coffee, code, and long walks.", banner: banner(1039), following: 210, followers: 3400 },
+  { id: "p4", name: "Ossie Peasey", handle: "ossie", avatar: avatar(51), online: true, bio: "Engineer @ somewhere. Shipping fast things.", banner: banner(1067), following: 88, followers: 1200 },
+  { id: "p5", name: "Hall Negri", handle: "halln", avatar: avatar(45), online: false, bio: "Tea over coffee. Fight me.", banner: banner(1080), following: 156, followers: 640 },
+  { id: "p6", name: "Elyssa Segot", handle: "elyssa", avatar: avatar(9), online: true, verified: true, bio: "Writer & sunrise chaser. NYC.", banner: banner(1015), following: 402, followers: 15200 },
+  { id: "p7", name: "Gil Wilfing", handle: "gilw", avatar: avatar(60), online: false, bio: "Sends files, occasionally memes.", banner: banner(1074), following: 74, followers: 420 },
+  { id: "p8", name: "Ray Hammond", handle: "rayh", avatar: avatar(68), online: true, verified: true, bio: "Traveller. 40 countries and counting. ✈️", banner: banner(1071), following: 640, followers: 48300 },
 ];
 
 export const CHATS: Chat[] = [
@@ -253,6 +272,7 @@ export const chatOnline = (c: Chat) => (c.kind === "group" ? undefined : c.perso
 export const POSTS: Post[] = [
   {
     id: "t1",
+    tags: ["travel", "newyork", "photography"],
     author: PEOPLE[7],
     location: "New-York",
     time: "Thursday, Jun 12, 5:50 PM",
@@ -286,6 +306,7 @@ export const POSTS: Post[] = [
   },
   {
     id: "t2",
+    tags: ["travel", "mountains", "photography"],
     author: PEOPLE[0],
     location: "Dolomites",
     time: "Wednesday, Jun 11, 9:14 AM",
@@ -299,6 +320,7 @@ export const POSTS: Post[] = [
   },
   {
     id: "t3",
+    tags: ["design", "ux"],
     author: PEOPLE[1],
     time: "Wednesday, Jun 11, 8:02 AM",
     text: "Which one do you reach for first when a screen has no data yet?",
@@ -320,6 +342,7 @@ export const POSTS: Post[] = [
   },
   {
     id: "t4",
+    tags: ["design", "opinion"],
     author: PEOPLE[5],
     time: "Tuesday, Jun 10, 7:30 PM",
     text: "Light grey is the new dark mode. Fight me. 🩶",
@@ -334,6 +357,7 @@ export const POSTS: Post[] = [
   },
   {
     id: "t5",
+    tags: ["engineering", "advice"],
     author: PEOPLE[3],
     time: "Tuesday, Jun 10, 11:11 AM",
     text: "Reminder that the best feature you can ship is a fast one.",
