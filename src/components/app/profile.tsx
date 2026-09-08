@@ -157,7 +157,7 @@ export function Profile({ user, onBack }: { user: VionUser; onBack: () => void }
           ))}
         </div>
 
-        <div className="flex flex-col gap-3 p-3">
+        <div className="flex flex-col gap-3 p-3 pb-24">
           {shown.length === 0 ? (
             <p className="py-14 text-center text-sm text-faint">
               {tab === "posts" ? t("noPosts") : t("noReposts")}

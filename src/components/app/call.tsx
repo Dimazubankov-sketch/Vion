@@ -15,7 +15,7 @@ import {
   RiVideoOnLine,
 } from "@remixicon/react";
 import { Avatar } from "@/components/ui/avatar";
-import { useSound, useT } from "@/lib/settings-context";
+import { useT } from "@/lib/settings-context";
 import type { TranslationKey } from "@/lib/i18n";
 import { cx } from "@/utils/cx";
 import { FourInARow, RockPaperScissors, TicTacToe, TrueOrFalse } from "./games";
@@ -56,7 +56,6 @@ export function CallOverlay({
 }) {
   const { name, avatar, kind, startedAt } = session;
   const t = useT();
-  const sound = useSound();
 
   const [connected, setConnected] = useState(Date.now() - startedAt > 1800);
   const [seconds, setSeconds] = useState(0);
@@ -77,12 +76,9 @@ export function CallOverlay({
   // Ring, then connect.
   useEffect(() => {
     if (connected) return;
-    const id = setTimeout(() => {
-      setConnected(true);
-      sound("callStart");
-    }, Math.max(0, 1800 - (Date.now() - startedAt)));
+    const id = setTimeout(() => setConnected(true), Math.max(0, 1800 - (Date.now() - startedAt)));
     return () => clearTimeout(id);
-  }, [connected, sound, startedAt]);
+  }, [connected, startedAt]);
 
   // The timer is derived from the session start, so minimising doesn't reset it.
   useEffect(() => {
@@ -145,11 +141,6 @@ export function CallOverlay({
       /* some browsers refuse without a stronger gesture */
     }
   }, []);
-
-  const end = () => {
-    sound("callEnd");
-    onEnd();
-  };
 
   const showBoard = game !== null;
   const selfLive = cameraOn && !mediaBlocked;
@@ -320,7 +311,7 @@ export function CallOverlay({
         </ControlButton>
 
         <button
-          onClick={end}
+          onClick={onEnd}
           aria-label={t("endCall")}
           className="flex size-14 items-center justify-center rounded-full bg-danger text-white transition hover:brightness-110 active:scale-95"
         >

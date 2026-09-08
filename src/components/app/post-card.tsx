@@ -1,11 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
+  RiAddLine,
   RiChat1Line,
+  RiCloseLine,
+  RiExternalLinkLine,
   RiEyeLine,
+  RiFile3Line,
+  RiFileTextLine,
   RiHeart3Fill,
   RiHeart3Line,
+  RiImageLine,
+  RiLink,
   RiMoreLine,
   RiRepeat2Line,
   RiSendPlane2Fill,
@@ -14,8 +21,11 @@ import { Avatar } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth-context";
 import { useStore } from "@/lib/app-store";
 import { useT } from "@/lib/settings-context";
-import type { Post } from "@/lib/mock-data";
+import type { Post, PostComment } from "@/lib/mock-data";
+import { formatBytes } from "@/utils/image";
 import { cx } from "@/utils/cx";
+import { uid } from "@/utils/uid";
+import { PollView } from "./poll-chart";
 
 export function compact(n: number) {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(/\.0$/, "")}M`;
@@ -23,25 +33,46 @@ export function compact(n: number) {
   return String(n);
 }
 
+type SortOrder = "new" | "top";
+
+/** Total comments including replies, so the count matches what you can read. */
+function countComments(comments: PostComment[]): number {
+  return comments.reduce((n, c) => n + 1 + countComments(c.replies ?? []), 0);
+}
+
 export function PostCard({ post }: { post: Post }) {
   const { user } = useAuth();
-  const { toggleLike, toggleRepost, addComment } = useStore();
+  const { toggleLike, toggleRepost, addComment, toggleCommentLike, votePoll } = useStore();
   const t = useT();
   const [open, setOpen] = useState(false);
-  const [draft, setDraft] = useState("");
+  const [sort, setSort] = useState<SortOrder>("top");
+  const [replyTo, setReplyTo] = useState<string | null>(null);
 
-  const submit = () => {
-    const text = draft.trim();
-    if (!text || !user) return;
-    addComment(post.id, {
-      id: `c${Date.now()}`,
-      author: { id: "me", name: user.name, handle: user.handle, avatar: user.avatar ?? "" },
-      text,
-      time: "now",
-    });
-    setDraft("");
-    setOpen(true);
-  };
+  const total = countComments(post.comments);
+
+  const sorted = useMemo(() => {
+    const list = [...post.comments];
+    if (sort === "new") list.sort((a, b) => b.createdAt - a.createdAt);
+    else list.sort((a, b) => b.likes - a.likes || b.createdAt - a.createdAt);
+    return list;
+  }, [post.comments, sort]);
+
+  const makeComment = (draft: CommentDraft): PostComment => ({
+    id: uid("c"),
+    author: {
+      id: "me",
+      name: user?.name ?? "You",
+      handle: user?.handle ?? "you",
+      avatar: user?.avatar ?? "",
+    },
+    text: draft.text,
+    time: "now",
+    createdAt: Date.now(),
+    likes: 0,
+    images: draft.images.length ? draft.images : undefined,
+    file: draft.file,
+    link: draft.link,
+  });
 
   return (
     <article className="overflow-hidden rounded-2xl border border-line bg-surface shadow-panel">
@@ -69,9 +100,11 @@ export function PostCard({ post }: { post: Post }) {
       </div>
 
       {/* Body */}
-      <p className="whitespace-pre-wrap px-4 pb-3 text-[15px] leading-relaxed text-ink">
-        {post.text}
-      </p>
+      {post.text && (
+        <p className="whitespace-pre-wrap px-4 pb-3 text-[15px] leading-relaxed text-ink">
+          {post.text}
+        </p>
+      )}
 
       {post.images && post.images.length > 0 && (
         <div
@@ -84,6 +117,12 @@ export function PostCard({ post }: { post: Post }) {
             // eslint-disable-next-line @next/next/no-img-element
             <img key={src} src={src} alt="" className="h-48 w-full rounded-xl object-cover" />
           ))}
+        </div>
+      )}
+
+      {post.poll && (
+        <div className="px-4 pb-3">
+          <PollView poll={post.poll} onVote={(optionId) => votePoll(post.id, optionId)} />
         </div>
       )}
 
@@ -120,7 +159,7 @@ export function PostCard({ post }: { post: Post }) {
           active={open}
           onClick={() => setOpen((v) => !v)}
           icon={<RiChat1Line className="size-5" />}
-          label={`${post.comments.length} ${t("comments")}`}
+          label={`${total} ${t("comments")}`}
         />
         <ActionButton
           active={post.reposted}
@@ -134,52 +173,409 @@ export function PostCard({ post }: { post: Post }) {
       {/* Comments */}
       {open && (
         <div className="border-t border-line bg-surface-2/50 p-4 animate-fade-in">
-          <div className="flex flex-col gap-3">
-            {post.comments.map((c) => (
-              <div key={c.id} className="flex gap-2.5">
-                <Avatar src={c.author.avatar} name={c.author.name} size={32} />
-                <div className="min-w-0 flex-1">
-                  <div className="rounded-2xl rounded-tl-md bg-surface px-3 py-2">
-                    <p className="text-sm font-semibold text-ink">{c.author.name}</p>
-                    <p className="text-sm text-ink">{c.text}</p>
-                  </div>
-                  <p className="mt-1 pl-1 text-xs text-faint">{c.time}</p>
-                </div>
+          {post.comments.length > 0 && (
+            <div className="mb-3 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted">
+                {total} {t("comments")}
+              </span>
+              <div className="flex gap-0.5 rounded-full bg-surface p-0.5">
+                {(["top", "new"] as const).map((key) => (
+                  <button
+                    key={key}
+                    onClick={() => setSort(key)}
+                    className={cx(
+                      "rounded-full px-3 py-1 text-xs font-medium transition",
+                      sort === key ? "bg-accent text-white" : "text-muted hover:text-ink",
+                    )}
+                  >
+                    {key === "top" ? t("sortTop") : t("sortNew")}
+                  </button>
+                ))}
               </div>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-3">
+            {sorted.map((c) => (
+              <CommentRow
+                key={c.id}
+                comment={c}
+                sort={sort}
+                replyTo={replyTo}
+                onReplyToggle={(id) => setReplyTo((cur) => (cur === id ? null : id))}
+                onLike={(id) => toggleCommentLike(post.id, id)}
+                onReply={(parentId, draft) => {
+                  addComment(post.id, makeComment(draft), parentId);
+                  setReplyTo(null);
+                }}
+              />
             ))}
             {post.comments.length === 0 && (
               <p className="text-center text-sm text-faint">{t("noComments")}</p>
             )}
           </div>
 
-          <div className="mt-3 flex items-center gap-2">
-            <Avatar src={user?.avatar} name={user?.name ?? "You"} size={32} />
-            <div className="flex flex-1 items-center gap-1 rounded-full bg-surface px-3 py-1.5">
-              <input
-                value={draft}
-                onChange={(e) => setDraft(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    submit();
-                  }
-                }}
-                placeholder={t("writeComment")}
-                className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-faint"
-              />
-              <button
-                onClick={submit}
-                aria-label="Post comment"
-                disabled={!draft.trim()}
-                className="flex size-7 shrink-0 items-center justify-center rounded-full text-accent transition hover:bg-accent-soft disabled:opacity-40"
-              >
-                <RiSendPlane2Fill className="size-4" />
-              </button>
-            </div>
+          <div className="mt-3">
+            <CommentComposer
+              placeholder={t("writeComment")}
+              onSubmit={(draft) => addComment(post.id, makeComment(draft))}
+            />
           </div>
         </div>
       )}
     </article>
+  );
+}
+
+function CommentRow({
+  comment,
+  sort,
+  replyTo,
+  onReplyToggle,
+  onLike,
+  onReply,
+  depth = 0,
+}: {
+  comment: PostComment;
+  sort: SortOrder;
+  replyTo: string | null;
+  onReplyToggle: (id: string) => void;
+  onLike: (id: string) => void;
+  onReply: (parentId: string, draft: CommentDraft) => void;
+  depth?: number;
+}) {
+  const t = useT();
+  const replies = useMemo(() => {
+    const list = [...(comment.replies ?? [])];
+    if (sort === "new") list.sort((a, b) => b.createdAt - a.createdAt);
+    else list.sort((a, b) => b.likes - a.likes || b.createdAt - a.createdAt);
+    return list;
+  }, [comment.replies, sort]);
+
+  return (
+    <div className="flex gap-2.5">
+      <Avatar src={comment.author.avatar} name={comment.author.name} size={depth ? 26 : 32} />
+      <div className="min-w-0 flex-1">
+        <div className="rounded-2xl rounded-tl-md bg-surface px-3 py-2">
+          <p className="text-sm font-semibold text-ink">{comment.author.name}</p>
+          {comment.text && <p className="whitespace-pre-wrap text-sm text-ink">{comment.text}</p>}
+
+          {comment.images && comment.images.length > 0 && (
+            <div
+              className={cx(
+                "mt-2 grid gap-1.5",
+                comment.images.length > 1 ? "grid-cols-2" : "grid-cols-1",
+              )}
+            >
+              {comment.images.map((src) => (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img key={src} src={src} alt="" className="h-28 w-full rounded-lg object-cover" />
+              ))}
+            </div>
+          )}
+
+          {comment.file && (
+            <a
+              href={comment.file.url}
+              download={comment.file.name}
+              className="mt-2 flex items-center gap-2 rounded-lg bg-surface-2 p-2 transition hover:bg-surface-3"
+            >
+              <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-accent-soft text-accent">
+                <RiFile3Line className="size-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-xs font-medium text-ink">
+                  {comment.file.name}
+                </span>
+                <span className="block text-[11px] text-muted">{comment.file.size}</span>
+              </span>
+            </a>
+          )}
+
+          {comment.link && (
+            <a
+              href={comment.link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 flex items-center gap-1.5 truncate text-xs font-medium text-accent hover:underline"
+            >
+              <RiExternalLinkLine className="size-3.5 shrink-0" />
+              {comment.link}
+            </a>
+          )}
+        </div>
+
+        <div className="mt-1 flex items-center gap-3 pl-1">
+          <span className="text-xs text-faint">{comment.time}</span>
+          <button
+            onClick={() => onLike(comment.id)}
+            className={cx(
+              "flex items-center gap-1 text-xs font-medium transition",
+              comment.liked ? "text-danger" : "text-muted hover:text-danger",
+            )}
+          >
+            {comment.liked ? (
+              <RiHeart3Fill className="size-3.5" />
+            ) : (
+              <RiHeart3Line className="size-3.5" />
+            )}
+            {comment.likes > 0 ? compact(comment.likes) : ""}
+          </button>
+          {depth === 0 && (
+            <button
+              onClick={() => onReplyToggle(comment.id)}
+              className="text-xs font-medium text-muted transition hover:text-accent"
+            >
+              {t("reply")}
+            </button>
+          )}
+        </div>
+
+        {replyTo === comment.id && (
+          <div className="mt-2">
+            <CommentComposer
+              autoFocus
+              placeholder={`${t("reply")} ${comment.author.name}…`}
+              onSubmit={(draft) => onReply(comment.id, draft)}
+            />
+          </div>
+        )}
+
+        {replies.length > 0 && (
+          <div className="mt-3 flex flex-col gap-3 border-l border-line pl-3">
+            {replies.map((r) => (
+              <CommentRow
+                key={r.id}
+                comment={r}
+                sort={sort}
+                replyTo={replyTo}
+                onReplyToggle={onReplyToggle}
+                onLike={onLike}
+                onReply={onReply}
+                depth={depth + 1}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+export interface CommentDraft {
+  text: string;
+  images: string[];
+  file?: { name: string; size: string; url?: string };
+  link?: string;
+}
+
+/** Comment box with a "+" menu for photos, files and links. */
+function CommentComposer({
+  placeholder,
+  onSubmit,
+  autoFocus = false,
+}: {
+  placeholder: string;
+  onSubmit: (draft: CommentDraft) => void;
+  autoFocus?: boolean;
+}) {
+  const { user } = useAuth();
+  const t = useT();
+  const [text, setText] = useState("");
+  const [images, setImages] = useState<string[]>([]);
+  const [file, setFile] = useState<CommentDraft["file"]>();
+  const [link, setLink] = useState("");
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  const fileRef = useRef<HTMLInputElement>(null);
+  const acceptRef = useRef("");
+
+  const canSend = !!(text.trim() || images.length || file || link.trim());
+
+  const submit = () => {
+    if (!canSend) return;
+    onSubmit({
+      text: text.trim(),
+      images,
+      file,
+      link: link.trim() || undefined,
+    });
+    setText("");
+    setImages([]);
+    setFile(undefined);
+    setLink("");
+    setLinkOpen(false);
+  };
+
+  const pick = (accept: string) => {
+    acceptRef.current = accept;
+    setMenuOpen(false);
+    requestAnimationFrame(() => fileRef.current?.click());
+  };
+
+  const onFiles = (list: FileList | null) => {
+    if (!list?.length) return;
+    const picked = Array.from(list);
+    const imgs = picked.filter((f) => f.type.startsWith("image/"));
+    const other = picked.find((f) => !f.type.startsWith("image/"));
+    if (imgs.length) setImages((prev) => [...prev, ...imgs.map((f) => URL.createObjectURL(f))]);
+    if (other) setFile({ name: other.name, size: formatBytes(other.size), url: URL.createObjectURL(other) });
+    if (fileRef.current) fileRef.current.value = "";
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <input
+        ref={fileRef}
+        type="file"
+        multiple
+        hidden
+        accept={acceptRef.current || undefined}
+        onChange={(e) => onFiles(e.target.files)}
+      />
+
+      {/* Staged attachments */}
+      {(images.length > 0 || file || (linkOpen && link)) && (
+        <div className="flex flex-wrap items-center gap-2 pl-10">
+          {images.map((src, i) => (
+            <span key={src} className="relative">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt="" className="size-14 rounded-lg object-cover" />
+              <button
+                onClick={() => setImages((prev) => prev.filter((_, idx) => idx !== i))}
+                aria-label={t("close")}
+                className="absolute -right-1.5 -top-1.5 flex size-5 items-center justify-center rounded-full bg-black/60 text-white"
+              >
+                <RiCloseLine className="size-3" />
+              </button>
+            </span>
+          ))}
+          {file && (
+            <span className="flex items-center gap-1.5 rounded-lg bg-surface px-2 py-1.5 text-xs text-ink">
+              <RiFile3Line className="size-3.5 text-accent" />
+              <span className="max-w-32 truncate">{file.name}</span>
+              <button onClick={() => setFile(undefined)} aria-label={t("close")}>
+                <RiCloseLine className="size-3.5 text-muted" />
+              </button>
+            </span>
+          )}
+        </div>
+      )}
+
+      {linkOpen && (
+        <div className="flex items-center gap-2 pl-10">
+          <RiLink className="size-4 shrink-0 text-accent" />
+          <input
+            value={link}
+            onChange={(e) => setLink(e.target.value)}
+            placeholder="https://…"
+            className="min-w-0 flex-1 rounded-lg bg-surface px-2.5 py-1.5 text-xs text-ink outline-none placeholder:text-faint"
+          />
+          <button
+            onClick={() => {
+              setLink("");
+              setLinkOpen(false);
+            }}
+            aria-label={t("close")}
+            className="text-muted"
+          >
+            <RiCloseLine className="size-4" />
+          </button>
+        </div>
+      )}
+
+      <div className="flex items-center gap-2">
+        <Avatar src={user?.avatar} name={user?.name ?? "You"} size={32} />
+
+        <div className="relative flex flex-1 items-center gap-1 rounded-full bg-surface px-2 py-1.5">
+          {/* Attachment menu */}
+          {menuOpen && (
+            <>
+              <button
+                aria-label={t("close")}
+                onClick={() => setMenuOpen(false)}
+                className="fixed inset-0 z-10 cursor-default"
+              />
+              <div className="absolute bottom-full left-0 z-20 mb-2 w-52 overflow-hidden rounded-2xl border border-line bg-surface shadow-float animate-pop-in">
+                <MenuItem
+                  icon={<RiImageLine className="size-5" />}
+                  label={t("photoOrVideo")}
+                  onClick={() => pick("image/*,video/*")}
+                />
+                <MenuItem
+                  icon={<RiFileTextLine className="size-5" />}
+                  label={t("document")}
+                  onClick={() => pick("")}
+                />
+                <MenuItem
+                  icon={<RiLink className="size-5" />}
+                  label={t("link")}
+                  onClick={() => {
+                    setLinkOpen(true);
+                    setMenuOpen(false);
+                  }}
+                />
+              </div>
+            </>
+          )}
+
+          <button
+            onClick={() => setMenuOpen((v) => !v)}
+            aria-label={t("photoOrVideo")}
+            className={cx(
+              "flex size-7 shrink-0 items-center justify-center rounded-full transition",
+              menuOpen ? "bg-accent text-white" : "text-muted hover:bg-surface-3 hover:text-accent",
+            )}
+          >
+            <RiAddLine className="size-4" />
+          </button>
+
+          <input
+            autoFocus={autoFocus}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            placeholder={placeholder}
+            className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-faint"
+          />
+
+          <button
+            onClick={submit}
+            aria-label="Post comment"
+            disabled={!canSend}
+            className="flex size-7 shrink-0 items-center justify-center rounded-full text-accent transition hover:bg-accent-soft disabled:opacity-40"
+          >
+            <RiSendPlane2Fill className="size-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MenuItem({
+  icon,
+  label,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm font-medium text-ink transition hover:bg-surface-2"
+    >
+      <span className="text-accent">{icon}</span>
+      {label}
+    </button>
   );
 }
 

@@ -19,11 +19,11 @@ import {
   RiSearchLine,
   RiSendPlane2Fill,
   RiVideoOnLine,
-  RiVidiconLine,
+  RiRecordCircleLine,
 } from "@remixicon/react";
 import { Avatar } from "@/components/ui/avatar";
 import { useStore } from "@/lib/app-store";
-import { useIsDesktop, useSound, useT } from "@/lib/settings-context";
+import { useIsDesktop, useT } from "@/lib/settings-context";
 import {
   chatAvatar,
   chatOnline,
@@ -35,6 +35,7 @@ import {
 } from "@/lib/mock-data";
 import { formatBytes } from "@/utils/image";
 import { cx } from "@/utils/cx";
+import { uid } from "@/utils/uid";
 import { NewGroupDialog } from "./new-group-dialog";
 import {
   LevelMeter,
@@ -76,7 +77,7 @@ export function ChatView({
 }) {
   const t = useT();
   const isDesktop = useIsDesktop();
-  const { chats, appendMessage, createGroup } = useStore();
+  const { chats, appendMessage, createGroup, markChatRead } = useStore();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [newGroup, setNewGroup] = useState(false);
@@ -86,6 +87,11 @@ export function ChatView({
   useEffect(() => {
     onConversationChange?.(active !== null);
   }, [active, onConversationChange]);
+
+  // Reading a chat marks it read, so the badge stops nagging.
+  useEffect(() => {
+    if (activeId) markChatRead(activeId);
+  }, [activeId, markChatRead]);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -100,7 +106,7 @@ export function ChatView({
   const send = (partial: Omit<ChatMessage, "id" | "from" | "time">) => {
     if (!active) return;
     appendMessage(active.id, {
-      id: `s${Date.now()}${Math.random().toString(16).slice(2, 6)}`,
+      id: uid("s"),
       from: "me",
       time: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       read: false,
@@ -232,7 +238,6 @@ function Conversation({
 }) {
   const t = useT();
   const isDesktop = useIsDesktop();
-  const sound = useSound();
   const [draft, setDraft] = useState("");
   const [attachOpen, setAttachOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -252,7 +257,6 @@ function Conversation({
     if (!text) return;
     onSend({ text });
     setDraft("");
-    sound("sent");
   };
 
   const openPicker = (accept: string) => {
@@ -271,8 +275,7 @@ function Conversation({
     others.forEach((f) =>
       onSend({ file: { name: f.name, size: formatBytes(f.size), url: URL.createObjectURL(f) } }),
     );
-    if (files.length) sound("sent");
-    if (fileRef.current) fileRef.current.value = "";
+    if (files.length)    if (fileRef.current) fileRef.current.value = "";
   };
 
   const onRecorded = useCallback(
@@ -282,9 +285,8 @@ function Conversation({
       } else {
         onSend({ audio: { url: result.url, duration: result.duration, peaks: result.peaks } });
       }
-      sound("sent");
     },
-    [onSend, sound],
+    [onSend],
   );
 
   const subtitle =
@@ -407,7 +409,6 @@ function Composer({
   onRecorded: (result: RecordingResult) => void;
 }) {
   const t = useT();
-  const sound = useSound();
   const barsRef = useRef<(HTMLDivElement | null)[]>([]);
   const { recording, seconds, error, stream, start, stop, cancel, setError } =
     useMediaRecorder(barsRef);
@@ -430,15 +431,13 @@ function Composer({
       setLocked(false);
       if (!send) {
         await cancel();
-        sound("recordStop");
         return;
       }
       const result = await stop();
-      sound("recordStop");
       // Ignore accidental taps that produced a fraction of a second.
       if (result && result.duration >= 0.6) onRecorded(result);
     },
-    [cancel, onRecorded, sound, stop],
+    [cancel, onRecorded, stop],
   );
 
   const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
@@ -448,7 +447,6 @@ function Composer({
     holdTimer.current = setTimeout(async () => {
       if (!press.current) return;
       press.current.started = true;
-      sound("recordStart");
       const ok = await start(mode);
       if (!ok) press.current = null;
     }, 220);
@@ -459,16 +457,16 @@ function Composer({
     if (press.current.y - e.clientY > 60) setLocked(true);
   };
 
-  const endPress = (send: boolean) => {
+  const endPress = (send: boolean, cancelled = false) => {
     if (holdTimer.current) clearTimeout(holdTimer.current);
     const current = press.current;
     press.current = null;
     if (!current) return;
 
     if (!current.started) {
-      // A quick tap flips between voice and video messages.
-      setMode((m) => (m === "audio" ? "video" : "audio"));
-      sound("toggle");
+      // A quick tap flips between voice and video messages — but a cancelled
+      // pointer (scroll, focus loss) is not a tap.
+      if (!cancelled) setMode((m) => (m === "audio" ? "video" : "audio"));
       return;
     }
     if (locked) return; // keeps running until the user hits send or cancel
@@ -581,10 +579,10 @@ function Composer({
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={() => endPress(true)}
-          onPointerCancel={() => endPress(false)}
+          onPointerCancel={() => endPress(false, true)}
           className="flex size-9 shrink-0 touch-none select-none items-center justify-center rounded-full text-faint transition hover:bg-surface-3 hover:text-accent active:scale-110 active:text-accent"
         >
-          {mode === "audio" ? <RiMicLine className="size-5" /> : <RiVidiconLine className="size-5" />}
+          {mode === "audio" ? <RiMicLine className="size-5" /> : <RiRecordCircleLine className="size-5" />}
         </button>
       )}
     </div>

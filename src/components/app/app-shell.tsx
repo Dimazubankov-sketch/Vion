@@ -10,12 +10,13 @@ import {
 import { Avatar } from "@/components/ui/avatar";
 import { useAuth } from "@/lib/auth-context";
 import { useStore } from "@/lib/app-store";
-import { useIsDesktop, useSound, useT } from "@/lib/settings-context";
+import { useIsDesktop, useT } from "@/lib/settings-context";
+import { useEdgeSwipe } from "@/lib/use-edge-swipe";
 import type { TranslationKey } from "@/lib/i18n";
 import { cx } from "@/utils/cx";
 import { Feed } from "./feed";
 import { ChatView } from "./chat";
-import { Sidebar } from "./sidebar";
+import { DRAWER_WIDTH, SidebarDrawer, SidebarRail } from "./sidebar";
 import { Profile } from "./profile";
 import { History } from "./history";
 import { Settings } from "./settings";
@@ -39,10 +40,10 @@ export function AppShell() {
   const { chats } = useStore();
   const t = useT();
   const isDesktop = useIsDesktop();
-  const sound = useSound();
 
   const [tab, setTab] = useState<AppTab>("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [railCollapsed, setRailCollapsed] = useState(false);
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [conversationOpen, setConversationOpen] = useState(false);
   const [call, setCall] = useState<CallSession | null>(null);
@@ -60,6 +61,14 @@ export function AppShell() {
 
   const unreadChats = useMemo(() => chats.reduce((n, c) => n + c.unread, 0), [chats]);
 
+  // Swipe from the left edge opens the drawer; a drag closes it again.
+  const swipe = useEdgeSwipe({
+    enabled: !isDesktop && !overlay && !conversationOpen && !(call && !callMinimized),
+    open: sidebarOpen,
+    setOpen: setSidebarOpen,
+    width: DRAWER_WIDTH,
+  });
+
   if (!user) return null;
 
   const sidebarProps = {
@@ -76,7 +85,6 @@ export function AppShell() {
     unread: { chat: unreadChats },
   };
 
-  // On mobile the avatar is the way into the menu; on desktop the rail is always there.
   const avatarButton = !isDesktop ? (
     <button
       onClick={() => setSidebarOpen(true)}
@@ -93,13 +101,18 @@ export function AppShell() {
     <div className="flex h-dvh w-full justify-center bg-canvas">
       {isDesktop && (
         <div className="h-dvh">
-          <Sidebar variant="static" {...sidebarProps} />
+          <SidebarRail
+            {...sidebarProps}
+            collapsed={railCollapsed}
+            onToggleCollapsed={() => setRailCollapsed((v) => !v)}
+          />
         </div>
       )}
 
       <div
+        {...swipe.handlers}
         className={cx(
-          "relative flex h-dvh w-full flex-col overflow-hidden bg-surface",
+          "relative flex h-dvh w-full flex-col overflow-hidden bg-surface touch-pan-y",
           isDesktop
             ? "max-w-[1000px] flex-1"
             : "max-w-[460px] shadow-panel sm:border-x sm:border-line",
@@ -133,7 +146,6 @@ export function AppShell() {
                   onClick={() => {
                     setTab(item.key);
                     setOverlay(null);
-                    sound("tap");
                   }}
                   aria-current={active ? "page" : undefined}
                   aria-label={t(item.labelKey)}
@@ -158,11 +170,12 @@ export function AppShell() {
 
         {/* Mobile drawer */}
         {!isDesktop && (
-          <Sidebar
-            variant="drawer"
+          <SidebarDrawer
+            {...sidebarProps}
             open={sidebarOpen}
             onClose={() => setSidebarOpen(false)}
-            {...sidebarProps}
+            progress={swipe.progress}
+            dragging={swipe.dragging}
           />
         )}
 

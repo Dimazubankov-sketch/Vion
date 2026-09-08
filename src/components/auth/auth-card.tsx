@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { RiAppleFill, RiArrowLeftLine, RiGithubFill, RiGoogleFill } from "@remixicon/react";
 import { useAuth } from "@/lib/auth-context";
-import { useSound, useT } from "@/lib/settings-context";
+import { useT } from "@/lib/settings-context";
 import {
   EMAIL_DOMAIN,
   createAccount,
@@ -55,7 +55,6 @@ export function AuthCard({
 }) {
   const { signIn, signUp } = useAuth();
   const t = useT();
-  const sound = useSound();
 
   const [mode, setMode] = useState<AuthMode>(modeProp ?? "signin");
   const [method, setMethod] = useState<"email" | "phone">("email");
@@ -90,7 +89,6 @@ export function AuthCard({
   const fail = (message: string, fields: typeof badFields) => {
     setError(message);
     setBadFields(fields);
-    sound("error");
   };
 
   const enter = (account: { username: string; name: string; phone?: string }) => {
@@ -152,10 +150,8 @@ export function AuthCard({
   const verify = async (entered: string) => {
     if (entered !== DEMO_CODE) {
       setCodeInvalid(true);
-      sound("error");
       return;
     }
-    sound("success");
     if (isSignup) {
       await createAccount({
         username,

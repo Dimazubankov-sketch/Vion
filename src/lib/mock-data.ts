@@ -64,6 +64,30 @@ export interface PostComment {
   author: Person;
   text: string;
   time: string;
+  /** Epoch ms — drives the "newest first" sort. */
+  createdAt: number;
+  likes: number;
+  liked?: boolean;
+  /** Attachments added through the reply composer's "+" menu. */
+  images?: string[];
+  file?: FileAttachment;
+  link?: string;
+  /** One level of nesting: replies to this comment. */
+  replies?: PostComment[];
+}
+
+export interface PollOption {
+  id: string;
+  text: string;
+  votes: number;
+}
+
+export interface Poll {
+  options: PollOption[];
+  /** How the results are drawn. */
+  chart: "bars" | "donut";
+  /** Which option the signed-in user picked, if any. */
+  votedId?: string;
 }
 
 export interface Post {
@@ -75,6 +99,7 @@ export interface Post {
   location?: string;
   text: string;
   images?: string[];
+  poll?: Poll;
   likes: number;
   likers: Person[];
   comments: PostComment[];
@@ -86,6 +111,9 @@ export interface Post {
   /** Authored by the signed-in user — drives the profile's Posts tab. */
   mine?: boolean;
 }
+
+/** Hours ago, as an epoch timestamp — demo comments need a real ordering. */
+const ago = (hours: number) => Date.now() - hours * 3_600_000;
 
 const avatar = (n: number) => `https://i.pravatar.cc/200?img=${n}`;
 const photo = (id: number, w = 800, h = 600) => `https://picsum.photos/id/${id}/${w}/${h}`;
@@ -217,16 +245,10 @@ export const CHATS: Chat[] = [
   },
 ];
 
-/** Title / avatar / subtitle helpers so screens don't branch on `kind` everywhere. */
+/** Title / avatar helpers so screens don't branch on `kind` everywhere. */
 export const chatTitle = (c: Chat) => (c.kind === "group" ? c.name! : c.person!.name);
 export const chatAvatar = (c: Chat) => (c.kind === "group" ? c.avatar : c.person!.avatar);
 export const chatOnline = (c: Chat) => (c.kind === "group" ? undefined : c.person!.online);
-export const chatSubtitle = (c: Chat) =>
-  c.kind === "group"
-    ? `${(c.members?.length ?? 0) + 1} members`
-    : c.person!.online
-      ? "Online"
-      : "last seen recently";
 
 export const POSTS: Post[] = [
   {
@@ -241,8 +263,25 @@ export const POSTS: Post[] = [
     shares: 0,
     views: 12400,
     comments: [
-      { id: "cm1", author: PEOPLE[5], text: "Central Park at sunrise — nothing beats it.", time: "2h" },
-      { id: "cm2", author: PEOPLE[1], text: "The skyline shot is unreal 🔥", time: "1h" },
+      {
+        id: "cm1",
+        author: PEOPLE[5],
+        text: "Central Park at sunrise — nothing beats it.",
+        time: "12m",
+        createdAt: ago(0.2),
+        likes: 34,
+        replies: [
+          {
+            id: "cm1r1",
+            author: PEOPLE[7],
+            text: "Adding it to the list for next time 🙌",
+            time: "1h",
+            createdAt: ago(1),
+            likes: 6,
+          },
+        ],
+      },
+      { id: "cm2", author: PEOPLE[1], text: "The skyline shot is unreal 🔥", time: "3h", createdAt: ago(3), likes: 112 },
     ],
   },
   {
@@ -256,13 +295,21 @@ export const POSTS: Post[] = [
     likers: [PEOPLE[7], PEOPLE[3], PEOPLE[6]],
     shares: 12,
     views: 30200,
-    comments: [{ id: "cm1", author: PEOPLE[3], text: "Where is the second one taken?", time: "5h" }],
+    comments: [{ id: "cm1", author: PEOPLE[3], text: "Where is the second one taken?", time: "5h", createdAt: ago(5), likes: 8 }],
   },
   {
     id: "t3",
     author: PEOPLE[1],
     time: "Wednesday, Jun 11, 8:02 AM",
-    text: "Hot take: a good empty state is worth ten onboarding tooltips.",
+    text: "Which one do you reach for first when a screen has no data yet?",
+    poll: {
+      chart: "bars",
+      options: [
+        { id: "o1", text: "A good empty state", votes: 412 },
+        { id: "o2", text: "Onboarding tooltips", votes: 98 },
+        { id: "o3", text: "A demo dataset", votes: 176 },
+      ],
+    },
     likes: 610,
     likers: [PEOPLE[4], PEOPLE[5]],
     shares: 54,
@@ -281,8 +328,8 @@ export const POSTS: Post[] = [
     shares: 88,
     views: 154000,
     comments: [
-      { id: "cm1", author: PEOPLE[7], text: "Genuinely agree.", time: "12h" },
-      { id: "cm2", author: PEOPLE[2], text: "My eyes at 2am disagree 😅", time: "10h" },
+      { id: "cm1", author: PEOPLE[7], text: "Genuinely agree.", time: "12h", createdAt: ago(12), likes: 51 },
+      { id: "cm2", author: PEOPLE[2], text: "My eyes at 2am disagree 😅", time: "10h", createdAt: ago(10), likes: 203 },
     ],
   },
   {

@@ -91,13 +91,6 @@ export function Settings({ onBack }: { onBack: () => void }) {
               label={t("pushNotifications")}
             />
           </Row>
-          <Row label={t("soundEffects")}>
-            <Toggle
-              on={toggles.sounds}
-              onChange={(v) => setToggle("sounds", v)}
-              label={t("soundEffects")}
-            />
-          </Row>
           <Row label={t("readReceipts")}>
             <Toggle
               on={toggles.readReceipts}

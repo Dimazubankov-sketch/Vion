@@ -26,6 +26,8 @@ export function Avatar({
   className?: string;
 }) {
   const dot = Math.max(9, Math.round(size * 0.28));
+  // An empty string is not a URL — fall back to initials instead of a broken img.
+  const photo = src || undefined;
   return (
     <span
       className={cx("relative inline-flex shrink-0", className)}
@@ -37,9 +39,9 @@ export function Avatar({
           ring && "ring-2 ring-accent ring-offset-2 ring-offset-canvas",
         )}
       >
-        {src ? (
+        {photo ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={src} alt={name} className="size-full object-cover" />
+          <img src={photo} alt={name} className="size-full object-cover" />
         ) : (
           <span className="font-semibold" style={{ fontSize: size * 0.38 }}>
             {initials(name)}

@@ -15,8 +15,6 @@ Messenger app styled like X (Twitter) + Telegram. Light-grey UI, Vion violet acc
 - Layout is chosen in JS, not by `lg:` classes: `useIsDesktop()` from
   settings-context is true only when the viewport is wide AND the "Mobile view"
   switch is off. Branch on it instead of adding Tailwind breakpoints.
-- UI sounds are synthesised in `src/lib/sounds.ts` — no audio files. Play them
-  through `useSound()` so the Sound effects setting is honoured.
 - Accounts live on the @voidops.ru domain in `src/lib/accounts.ts` (localStorage,
   SHA-256 password digest, no backend).
 - The demo SMS verification code is `123456`.

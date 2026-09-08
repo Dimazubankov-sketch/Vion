@@ -10,11 +10,9 @@ import {
   type ReactNode,
 } from "react";
 import { translate, type Lang, type TranslationKey } from "./i18n";
-import { playSound, type SoundName } from "./sounds";
 
 interface Toggles {
   push: boolean;
-  sounds: boolean;
   readReceipts: boolean;
   /** Force the phone layout even on a wide screen. */
   mobileView: boolean;
@@ -22,7 +20,6 @@ interface Toggles {
 
 const DEFAULT_TOGGLES: Toggles = {
   push: true,
-  sounds: true,
   readReceipts: true,
   mobileView: false,
 };
@@ -128,13 +125,3 @@ export function useIsDesktop() {
   return useSettings().isDesktop;
 }
 
-/** Play a UI cue, honouring the "Sound effects" setting. */
-export function useSound() {
-  const { toggles } = useSettings();
-  return useCallback(
-    (name: SoundName) => {
-      if (toggles.sounds) playSound(name);
-    },
-    [toggles.sounds],
-  );
-}
