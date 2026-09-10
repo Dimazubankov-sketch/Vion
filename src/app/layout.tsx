@@ -21,6 +21,10 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
+  // Shrink the layout viewport when the on-screen keyboard opens, so fixed
+  // bottom-anchored inputs (composer, comment box) stay above it instead of
+  // sliding underneath.
+  interactiveWidget: "resizes-content",
 };
 
 // Apply the saved theme before paint to avoid a flash of the wrong theme.

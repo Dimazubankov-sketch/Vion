@@ -10,6 +10,7 @@ import type { Person } from "@/lib/mock-data";
 import { emailFor } from "@/lib/accounts";
 import { cx } from "@/utils/cx";
 import { PostCard, compact } from "./post-card";
+import { ShareSheet } from "./share-sheet";
 
 type ContentTab = "posts" | "reposts";
 
@@ -20,6 +21,7 @@ export function PersonProfile({ person, onBack }: { person: Person; onBack: () =
   const following = isFollowing(person.id);
   const [tab, setTab] = useState<ContentTab>("posts");
   const [avatarOpen, setAvatarOpen] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const mine = posts.filter((p) => p.author.handle === person.handle);
   const theirPosts = mine.filter((p) => !p.repostOf);
@@ -56,7 +58,10 @@ export function PersonProfile({ person, onBack }: { person: Person; onBack: () =
           </button>
 
           <div className="mb-1 flex gap-2">
-            <button className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-medium text-ink transition hover:bg-surface-3">
+            <button
+              onClick={() => setSharing(true)}
+              className="flex items-center gap-1.5 rounded-full border border-line bg-surface px-3.5 py-1.5 text-sm font-medium text-ink transition hover:bg-surface-3"
+            >
               <RiShareLine className="size-4" />
               {t("share")}
             </button>
@@ -131,6 +136,7 @@ export function PersonProfile({ person, onBack }: { person: Person; onBack: () =
           onClose={() => setAvatarOpen(false)}
         />
       )}
+      {sharing && <ShareSheet handle={person.handle} name={person.name} onClose={() => setSharing(false)} />}
     </div>
   );
 }

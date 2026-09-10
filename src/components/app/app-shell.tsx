@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   RiChat3Fill,
   RiChat3Line,
@@ -18,6 +18,7 @@ import { ProfileNavProvider } from "@/lib/profile-nav";
 import type { Person } from "@/lib/mock-data";
 import type { TranslationKey } from "@/lib/i18n";
 import { cx } from "@/utils/cx";
+import { AuthScreen } from "@/components/auth/auth-screen";
 import { Feed } from "./feed";
 import { Search } from "./search";
 import { ChatView } from "./chat";
@@ -56,6 +57,15 @@ export function AppShell() {
   const [conversationOpen, setConversationOpen] = useState(false);
   const [call, setCall] = useState<CallSession | null>(null);
   const [callMinimized, setCallMinimized] = useState(false);
+  const [addingAccount, setAddingAccount] = useState(false);
+
+  // Close the "add account" overlay once a different account becomes active.
+  const addFromHandle = useRef<string | undefined>(undefined);
+  useEffect(() => {
+    if (addingAccount && user && addFromHandle.current && user.handle !== addFromHandle.current) {
+      setAddingAccount(false);
+    }
+  }, [addingAccount, user]);
 
   const onConversationChange = useCallback((open: boolean) => setConversationOpen(open), []);
   const startCall = useCallback((name: string, avatar: string | undefined, kind: CallKind) => {
@@ -86,6 +96,10 @@ export function AppShell() {
     onOpenHistory: () => setOverlay("history"),
     onOpenSettings: () => setOverlay("settings"),
     onSignOut: signOut,
+    onAddAccount: () => {
+      addFromHandle.current = user?.handle;
+      setAddingAccount(true);
+    },
     unread: { chat: unreadChats },
   };
 
@@ -198,6 +212,13 @@ export function AppShell() {
           {person && (
             <div className="absolute inset-0 z-[52] bg-surface animate-slide-in-left">
               <PersonProfile person={person} onBack={() => setPerson(null)} />
+            </div>
+          )}
+
+          {/* Add-account: the auth screen over the app, cancelable via its back arrow */}
+          {addingAccount && (
+            <div className="absolute inset-0 z-[70] bg-canvas animate-slide-in-left">
+              <AuthScreen mode="signup" onBack={() => setAddingAccount(false)} />
             </div>
           )}
 

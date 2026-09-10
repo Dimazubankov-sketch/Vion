@@ -60,6 +60,8 @@ interface AppStore {
   /** Quote-repost: a new post that embeds `original`. */
   repost: (original: Post, text: string) => void;
   hidePost: (id: string) => void;
+  editPost: (id: string, text: string) => void;
+  deletePost: (id: string) => void;
   addComment: (postId: string, comment: PostComment, parentId?: string) => void;
   toggleCommentLike: (postId: string, commentId: string) => void;
   votePoll: (postId: string, optionId: string) => void;
@@ -73,15 +75,21 @@ interface AppStore {
   appendMessage: (chatId: string, message: ChatMessage) => void;
   editMessage: (chatId: string, messageId: string, text: string) => void;
   deleteMessages: (chatId: string, messageIds: string[], scope: "me" | "everyone") => void;
+  deleteSelected: (chatId: string, keys: string[], scope: "me" | "everyone") => void;
   forwardMessage: (message: ChatMessage, toChatId: string) => void;
   clearHistory: (chatId: string) => void;
   markChatRead: (chatId: string) => void;
+  markUnread: (chatId: string) => void;
   createGroup: (name: string, members: Person[]) => Chat;
 
   chatSettings: (chatId: string) => ChatSettings;
   setChatSetting: <K extends keyof ChatSettings>(chatId: string, key: K, value: ChatSettings[K]) => void;
   isBlocked: (chatId: string) => boolean;
   toggleBlock: (chatId: string) => void;
+  togglePinChat: (chatId: string) => void;
+  toggleMuteChat: (chatId: string) => void;
+  deleteChat: (chatId: string) => void;
+  pinMessage: (chatId: string, messageId: string | undefined) => void;
 }
 
 const StoreContext = createContext<AppStore | null>(null);
@@ -206,6 +214,14 @@ function StoreInner({
     setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, hidden: true } : p)));
   }, []);
 
+  const editPost = useCallback((id: string, text: string) => {
+    setPosts((prev) => prev.map((p) => (p.id === id ? { ...p, text } : p)));
+  }, []);
+
+  const deletePost = useCallback((id: string) => {
+    setPosts((prev) => prev.filter((p) => p.id !== id));
+  }, []);
+
   const addComment = useCallback((postId: string, comment: PostComment, parentId?: string) => {
     setPosts((prev) =>
       prev.map((p) => {
@@ -314,6 +330,8 @@ function StoreInner({
 
   const repost = useCallback(
     (original: Post, text: string) => {
+      // You can't repost your own post onto your own page.
+      if (original.mine) return;
       // Bump the original's share count and add a quote post to the top.
       setPosts((prev) => prev.map((p) => (p.id === original.id ? { ...p, shares: p.shares + 1, reposted: true } : p)));
       addPost({ text, repostOf: { ...original, repostOf: undefined } });
@@ -367,6 +385,41 @@ function StoreInner({
     [],
   );
 
+  // Delete a mix of whole messages (`msgId`) and single photos (`msgId:index`).
+  // A message loses just the selected photos unless it's fully selected or has
+  // nothing left to show, in which case the whole message goes.
+  const deleteSelected = useCallback((chatId: string, keys: string[], _scope: "me" | "everyone") => {
+    const whole = new Set<string>();
+    const photos = new Map<string, Set<number>>();
+    for (const key of keys) {
+      const [id, idx] = key.split(":");
+      if (idx === undefined) whole.add(id);
+      else {
+        if (!photos.has(id)) photos.set(id, new Set());
+        photos.get(id)!.add(Number(idx));
+      }
+    }
+    setChats((prev) =>
+      prev.map((c) => {
+        if (c.id !== chatId) return c;
+        const next: ChatMessage[] = [];
+        for (const m of c.messages) {
+          if (whole.has(m.id)) continue;
+          const idxs = photos.get(m.id);
+          if (!idxs || !m.images) {
+            next.push(m);
+            continue;
+          }
+          const kept = m.images.filter((_, i) => !idxs.has(i));
+          // Nothing left to show → drop the message entirely.
+          if (kept.length === 0 && !m.text && !m.file && !m.audio && !m.video) continue;
+          next.push({ ...m, images: kept.length ? kept : undefined });
+        }
+        return { ...c, messages: next };
+      }),
+    );
+  }, []);
+
   const forwardMessage = useCallback((message: ChatMessage, toChatId: string) => {
     const fromName = chats.find((c) =>
       c.messages.some((m) => m.id === message.id),
@@ -413,6 +466,10 @@ function StoreInner({
     );
   }, []);
 
+  const markUnread = useCallback((chatId: string) => {
+    setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, unread: Math.max(1, c.unread) } : c)));
+  }, []);
+
   const createGroup = useCallback((name: string, members: Person[]) => {
     const chat: Chat = {
       id: uid("g"),
@@ -453,10 +510,34 @@ function StoreInner({
     setBlocked((prev) => ({ ...prev, [chatId]: !prev[chatId] }));
   }, []);
 
+  const togglePinChat = useCallback((chatId: string) => {
+    setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, pinned: !c.pinned } : c)));
+  }, []);
+
+  const toggleMuteChat = useCallback((chatId: string) => {
+    setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, muted: !c.muted } : c)));
+  }, []);
+
+  // Removing a chat hides it from the list but keeps its messages, so it comes
+  // back intact if the conversation is reopened.
+  const deleteChat = useCallback((chatId: string) => {
+    setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, deleted: true, unread: 0 } : c)));
+  }, []);
+
+  const pinMessage = useCallback((chatId: string, messageId: string | undefined) => {
+    setChats((prev) => prev.map((c) => (c.id === chatId ? { ...c, pinnedMessageId: messageId } : c)));
+  }, []);
+
   const visiblePosts = useMemo(() => posts.filter((p) => !p.hidden), [posts]);
   const likedPosts = useMemo(() => visiblePosts.filter((p) => p.liked), [visiblePosts]);
   const myPosts = useMemo(() => visiblePosts.filter((p) => p.mine), [visiblePosts]);
   const repostedPosts = useMemo(() => visiblePosts.filter((p) => p.reposted), [visiblePosts]);
+
+  // Hide deleted chats and float pinned ones to the top (stable otherwise).
+  const visibleChats = useMemo(() => {
+    const shown = chats.filter((c) => !c.deleted);
+    return [...shown].sort((a, b) => Number(!!b.pinned) - Number(!!a.pinned));
+  }, [chats]);
 
   const value = useMemo(
     () => ({
@@ -472,20 +553,28 @@ function StoreInner({
       toggleCommentLike,
       votePoll,
       addPost,
+      editPost,
+      deletePost,
       isFollowing,
       toggleFollow,
-      chats,
+      chats: visibleChats,
       appendMessage,
       editMessage,
       deleteMessages,
+      deleteSelected,
       forwardMessage,
       clearHistory,
       markChatRead,
+      markUnread,
       createGroup,
       chatSettings,
       setChatSetting,
       isBlocked,
       toggleBlock,
+      togglePinChat,
+      toggleMuteChat,
+      deleteChat,
+      pinMessage,
     }),
     [
       visiblePosts,
@@ -500,20 +589,28 @@ function StoreInner({
       toggleCommentLike,
       votePoll,
       addPost,
+      editPost,
+      deletePost,
       isFollowing,
       toggleFollow,
-      chats,
+      visibleChats,
       appendMessage,
       editMessage,
       deleteMessages,
+      deleteSelected,
       forwardMessage,
       clearHistory,
       markChatRead,
+      markUnread,
       createGroup,
       chatSettings,
       setChatSetting,
       isBlocked,
       toggleBlock,
+      togglePinChat,
+      toggleMuteChat,
+      deleteChat,
+      pinMessage,
     ],
   );
 

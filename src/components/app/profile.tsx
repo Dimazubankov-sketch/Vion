@@ -22,6 +22,7 @@ import { cx } from "@/utils/cx";
 import { PostCard, compact } from "./post-card";
 import { EditProfileDialog } from "./edit-profile";
 import { PostComposerDialog } from "./post-composer";
+import { ShareSheet } from "./share-sheet";
 
 type ContentTab = "posts" | "reposts";
 type PeopleTab = "following" | "followers";
@@ -33,6 +34,7 @@ export function Profile({ user, onBack }: { user: VoyzenUser; onBack: () => void
   const [people, setPeople] = useState<PeopleTab | null>(null);
   const [editing, setEditing] = useState(false);
   const [composing, setComposing] = useState(false);
+  const [sharing, setSharing] = useState(false);
 
   const shown = tab === "posts" ? myPosts : repostedPosts;
 
@@ -82,7 +84,7 @@ export function Profile({ user, onBack }: { user: VoyzenUser; onBack: () => void
             </button>
 
             <div className="mb-1 flex gap-2">
-              <OutlineButton icon={<RiShareLine className="size-4" />}>{t("share")}</OutlineButton>
+              <OutlineButton icon={<RiShareLine className="size-4" />} onClick={() => setSharing(true)}>{t("share")}</OutlineButton>
               <OutlineButton icon={<RiEditLine className="size-4" />} onClick={() => setEditing(true)}>
                 {t("edit")}
               </OutlineButton>
@@ -182,6 +184,7 @@ export function Profile({ user, onBack }: { user: VoyzenUser; onBack: () => void
       {people && <PeoplePanel tab={people} onTab={setPeople} onClose={() => setPeople(null)} />}
       {editing && <EditProfileDialog user={user} onClose={() => setEditing(false)} />}
       {composing && <PostComposerDialog onClose={() => setComposing(false)} />}
+      {sharing && <ShareSheet handle={user.handle} name={user.name} onClose={() => setSharing(false)} />}
     </div>
   );
 }

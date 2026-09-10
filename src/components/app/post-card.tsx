@@ -7,6 +7,7 @@ import {
   RiArrowLeftLine,
   RiChat1Line,
   RiCloseLine,
+  RiDeleteBin6Line,
   RiExternalLinkLine,
   RiEyeLine,
   RiEyeOffLine,
@@ -16,6 +17,7 @@ import {
   RiImageLine,
   RiLink,
   RiMoreLine,
+  RiPencilLine,
   RiRepeat2Line,
   RiSendPlane2Fill,
   RiShareForwardLine,
@@ -60,15 +62,16 @@ function usePersonOpener() {
 
 export function PostCard({ post }: { post: Post }) {
   const { user } = useAuth();
-  const { toggleLike, votePoll, hidePost } = useStore();
+  const { toggleLike, votePoll, hidePost, editPost, deletePost } = useStore();
   const t = useT();
   const openPerson = usePersonOpener();
   const [open, setOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [reposting, setReposting] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [viewer, setViewer] = useState<number | null>(null);
 
-  const isMe = post.author.handle === user?.handle;
+  const isMe = post.mine || post.author.handle === user?.handle;
   const total = countComments(post.comments);
 
   return (
@@ -101,7 +104,22 @@ export function PostCard({ post }: { post: Post }) {
           >
             <RiMoreLine className="size-5" />
           </button>
-          {menuOpen && <PostMenu post={post} onClose={() => setMenuOpen(false)} onHide={() => hidePost(post.id)} />}
+          {menuOpen && (
+            <PostMenu
+              post={post}
+              isMe={isMe}
+              onClose={() => setMenuOpen(false)}
+              onHide={() => hidePost(post.id)}
+              onEdit={() => {
+                setEditing(true);
+                setMenuOpen(false);
+              }}
+              onDelete={() => {
+                deletePost(post.id);
+                setMenuOpen(false);
+              }}
+            />
+          )}
         </div>
       </div>
 
@@ -161,7 +179,8 @@ export function PostCard({ post }: { post: Post }) {
         <ActionButton
           active={post.reposted}
           activeClass="text-online"
-          onClick={() => setReposting(true)}
+          disabled={isMe}
+          onClick={() => !isMe && setReposting(true)}
           icon={<RiRepeat2Line className="size-5" />}
           label={`${post.shares} ${t("shares")}`}
         />
@@ -170,6 +189,8 @@ export function PostCard({ post }: { post: Post }) {
       {open && <CommentsScreen post={post} onClose={() => setOpen(false)} />}
 
       {reposting && <PostComposerDialog repostOf={post} onClose={() => setReposting(false)} />}
+
+      {editing && <PostComposerDialog editing={post} onClose={() => setEditing(false)} />}
 
       {viewer !== null && post.images && (
         <MediaViewer
@@ -330,11 +351,26 @@ function CommentsScreen({ post, onClose }: { post: Post; onClose: () => void }) 
   );
 }
 
-/** The post "..." dropdown: share, report, not interested. */
-function PostMenu({ post, onClose, onHide }: { post: Post; onClose: () => void; onHide: () => void }) {
+/** The post "..." dropdown. Own posts get edit/delete; others get share/report. */
+function PostMenu({
+  post,
+  isMe,
+  onClose,
+  onHide,
+  onEdit,
+  onDelete,
+}: {
+  post: Post;
+  isMe: boolean;
+  onClose: () => void;
+  onHide: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   const t = useT();
   const [reported, setReported] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const share = () => {
     const url = `${window.location.origin}${window.location.pathname}#post-${post.id}`;
@@ -346,16 +382,37 @@ function PostMenu({ post, onClose, onHide }: { post: Post; onClose: () => void; 
   return (
     <>
       <button aria-label={t("close")} onClick={onClose} className="fixed inset-0 z-30 cursor-default" />
-      <div className="absolute right-0 top-9 z-40 w-52 overflow-hidden rounded-2xl border border-line bg-surface shadow-float animate-pop-in">
+      <div className="absolute right-0 top-9 z-40 w-56 overflow-hidden rounded-2xl border border-line bg-surface shadow-float animate-pop-in">
         {reported ? (
           <p className="px-3.5 py-4 text-center text-sm text-muted">{t("reportThanks")}</p>
         ) : copied ? (
           <p className="px-3.5 py-4 text-center text-sm text-muted">{t("linkCopied")}</p>
+        ) : confirmDelete ? (
+          <div className="p-3">
+            <p className="px-1 py-2 text-center text-sm text-ink">{t("deletePostQ")}</p>
+            <div className="mt-1 flex gap-2">
+              <button onClick={() => setConfirmDelete(false)} className="h-9 flex-1 rounded-xl border border-line text-sm font-medium text-ink transition hover:bg-surface-3">
+                {t("cancel")}
+              </button>
+              <button onClick={onDelete} className="h-9 flex-1 rounded-xl bg-danger text-sm font-semibold text-white transition hover:brightness-110">
+                {t("deletePost")}
+              </button>
+            </div>
+          </div>
         ) : (
           <>
             <MenuRow icon={<RiShareForwardLine className="size-5" />} label={t("copyLink")} onClick={share} />
-            <MenuRow icon={<RiEyeOffLine className="size-5" />} label={t("notInterested")} onClick={() => { onHide(); onClose(); }} />
-            <MenuRow danger icon={<RiFlagLine className="size-5" />} label={t("reportPost")} onClick={() => setReported(true)} />
+            {isMe ? (
+              <>
+                <MenuRow icon={<RiPencilLine className="size-5" />} label={t("editPost")} onClick={onEdit} />
+                <MenuRow danger icon={<RiDeleteBin6Line className="size-5" />} label={t("deletePost")} onClick={() => setConfirmDelete(true)} />
+              </>
+            ) : (
+              <>
+                <MenuRow icon={<RiEyeOffLine className="size-5" />} label={t("notInterested")} onClick={() => { onHide(); onClose(); }} />
+                <MenuRow danger icon={<RiFlagLine className="size-5" />} label={t("reportPost")} onClick={() => setReported(true)} />
+              </>
+            )}
           </>
         )}
       </div>
@@ -671,18 +728,25 @@ function ActionButton({
   label,
   onClick,
   active,
+  disabled,
   activeClass = "text-accent",
 }: {
   icon: React.ReactNode;
   label: string;
   onClick?: () => void;
   active?: boolean;
+  disabled?: boolean;
   activeClass?: string;
 }) {
   return (
     <button
       onClick={onClick}
-      className={cx("flex items-center justify-center gap-2 py-3 text-sm font-medium transition hover:bg-surface-2 active:scale-[0.97]", active ? activeClass : "text-muted")}
+      disabled={disabled}
+      className={cx(
+        "flex items-center justify-center gap-2 py-3 text-sm font-medium transition active:scale-[0.97]",
+        disabled ? "cursor-not-allowed opacity-40" : "hover:bg-surface-2",
+        active ? activeClass : "text-muted",
+      )}
     >
       {icon}
       <span className="truncate">{label}</span>

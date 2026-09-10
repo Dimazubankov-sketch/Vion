@@ -15,6 +15,8 @@ import {
   RiMicLine,
   RiMoreLine,
   RiPencilLine,
+  RiPushpin2Fill,
+  RiVolumeMuteFill,
   RiPhoneLine,
   RiRecordCircleLine,
   RiSearchLine,
@@ -30,6 +32,7 @@ import {
   chatAvatar,
   chatOnline,
   chatTitle,
+  PEOPLE,
   type Chat,
   type ChatMessage,
   type Person,
@@ -40,7 +43,7 @@ import { uid } from "@/utils/uid";
 import { NewGroupDialog } from "./new-group-dialog";
 import { ChatInfo } from "./chat-info";
 import { BubbleBody, bubbleShellClass } from "./chat-bubble";
-import { ChatMoreSheet, ForwardPicker, MessageActionMenu } from "./chat-sheets";
+import { ChatListMenu, ChatMoreSheet, ForwardPicker, MessageActionMenu } from "./chat-sheets";
 import {
   LevelMeter,
   formatTime,
@@ -70,6 +73,87 @@ export function ChatAvatar({ chat, size = 52 }: { chat: Chat; size?: number }) {
   );
 }
 
+/** A single chat-list row. Long-press or right-click opens its context menu. */
+function ChatRow({
+  chat,
+  preview,
+  lastTime,
+  mine,
+  active,
+  onOpen,
+  onMenu,
+}: {
+  chat: Chat;
+  preview: string;
+  lastTime?: string;
+  mine: boolean;
+  active: boolean;
+  onOpen: () => void;
+  onMenu: (rect: DOMRect) => void;
+}) {
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const held = useRef(false);
+  useEffect(() => () => { if (holdTimer.current) clearTimeout(holdTimer.current); }, []);
+
+  const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+    held.current = false;
+    const rect = e.currentTarget.getBoundingClientRect();
+    holdTimer.current = setTimeout(() => {
+      held.current = true;
+      onMenu(rect);
+    }, 450);
+  };
+  const clearHold = () => {
+    if (holdTimer.current) clearTimeout(holdTimer.current);
+  };
+
+  return (
+    <button
+      onClick={() => {
+        if (held.current) return;
+        onOpen();
+      }}
+      onPointerDown={onPointerDown}
+      onPointerUp={clearHold}
+      onPointerLeave={clearHold}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        onMenu(e.currentTarget.getBoundingClientRect());
+      }}
+      className={cx(
+        "flex w-full items-center gap-3 border-b border-line px-4 py-3 text-left transition hover:bg-surface-2/50",
+        active && "bg-surface-2",
+      )}
+    >
+      <ChatAvatar chat={chat} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center justify-between gap-2">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className="truncate text-sm font-semibold text-ink">{chatTitle(chat)}</span>
+            {chat.muted && <RiVolumeMuteFill className="size-3.5 shrink-0 text-faint" />}
+          </span>
+          <span className="flex shrink-0 items-center gap-1.5 text-xs text-faint">
+            {chat.pinned && <RiPushpin2Fill className="size-3.5 text-muted" />}
+            {lastTime}
+          </span>
+        </div>
+        <div className="mt-0.5 flex items-center gap-1.5">
+          {mine && <RiCheckDoubleLine className="size-4 shrink-0 text-accent" />}
+          <span className="truncate text-sm text-muted">{preview}</span>
+          {chat.unread > 0 && (
+            <span className={cx(
+              "ml-auto flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white",
+              chat.muted ? "bg-faint" : "bg-accent",
+            )}>
+              {chat.unread}
+            </span>
+          )}
+        </div>
+      </div>
+    </button>
+  );
+}
+
 export function ChatView({
   onConversationChange,
   onStartCall,
@@ -81,10 +165,11 @@ export function ChatView({
 }) {
   const t = useT();
   const isDesktop = useIsDesktop();
-  const { chats, appendMessage, createGroup, markChatRead, chatSettings } = useStore();
+  const { chats, appendMessage, createGroup, markChatRead, chatSettings, togglePinChat, toggleMuteChat, deleteChat, markUnread } = useStore();
   const [activeId, setActiveId] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [newGroup, setNewGroup] = useState(false);
+  const [chatMenu, setChatMenu] = useState<{ chat: Chat; rect: DOMRect } | null>(null);
 
   const active = chats.find((c) => c.id === activeId) ?? null;
 
@@ -166,31 +251,16 @@ export function ChatView({
                       : "");
             const mine = last?.from === "me";
             return (
-              <button
+              <ChatRow
                 key={chat.id}
-                onClick={() => setActiveId(chat.id)}
-                className={cx(
-                  "flex w-full items-center gap-3 border-b border-line px-4 py-3 text-left transition hover:bg-surface-2/50",
-                  isDesktop && activeId === chat.id && "bg-surface-2",
-                )}
-              >
-                <ChatAvatar chat={chat} />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-semibold text-ink">{chatTitle(chat)}</span>
-                    <span className="shrink-0 text-xs text-faint">{last?.time}</span>
-                  </div>
-                  <div className="mt-0.5 flex items-center gap-1.5">
-                    {mine && <RiCheckDoubleLine className="size-4 shrink-0 text-accent" />}
-                    <span className="truncate text-sm text-muted">{preview}</span>
-                    {chat.unread > 0 && (
-                      <span className="ml-auto flex size-5 shrink-0 items-center justify-center rounded-full bg-accent text-[11px] font-semibold text-white">
-                        {chat.unread}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </button>
+                chat={chat}
+                preview={preview}
+                lastTime={last?.time}
+                mine={mine}
+                active={isDesktop && activeId === chat.id}
+                onOpen={() => setActiveId(chat.id)}
+                onMenu={(rect) => setChatMenu({ chat, rect })}
+              />
             );
           })}
           {filtered.length === 0 && (
@@ -227,6 +297,22 @@ export function ChatView({
       </div>
 
       {newGroup && <NewGroupDialog onClose={() => setNewGroup(false)} onCreate={onCreateGroup} />}
+
+      {chatMenu && (
+        <ChatListMenu
+          chat={chatMenu.chat}
+          rect={chatMenu.rect}
+          onClose={() => setChatMenu(null)}
+          onPin={() => { togglePinChat(chatMenu.chat.id); setChatMenu(null); }}
+          onMute={() => { toggleMuteChat(chatMenu.chat.id); setChatMenu(null); }}
+          onMarkUnread={() => { markUnread(chatMenu.chat.id); setChatMenu(null); }}
+          onDelete={() => {
+            deleteChat(chatMenu.chat.id);
+            if (activeId === chatMenu.chat.id) setActiveId(null);
+            setChatMenu(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -246,17 +332,30 @@ function Conversation({
 }) {
   const t = useT();
   const isDesktop = useIsDesktop();
-  const { chats, editMessage, deleteMessages, forwardMessage, chatSettings, isBlocked } = useStore();
+  const { chats, editMessage, deleteMessages, deleteSelected, forwardMessage, chatSettings, isBlocked, pinMessage } = useStore();
   const [draft, setDraft] = useState("");
   const [attachOpen, setAttachOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [menuFor, setMenuFor] = useState<{ message: ChatMessage; rect: DOMRect } | null>(null);
   const [forwarding, setForwarding] = useState<ChatMessage | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [replyingTo, setReplyingTo] = useState<ChatMessage | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [viewer, setViewer] = useState<{ items: string[]; index: number } | null>(null);
   const [infoOpen, setInfoOpen] = useState(false);
+
+  // Leaving nothing selected drops back out of select mode.
+  useEffect(() => {
+    if (selectMode && selected.size === 0) setSelectMode(false);
+  }, [selectMode, selected]);
+
+  // The selectable "elements" of a message: each photo of an image message, or
+  // the message itself otherwise.
+  const elementKeys = useCallback((m: ChatMessage): string[] => {
+    if (m.images && m.images.length > 0) return m.images.map((_, i) => `${m.id}:${i}`);
+    return [m.id];
+  }, []);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -273,6 +372,12 @@ function Conversation({
     return () => cancelAnimationFrame(id);
   }, [chat.messages.length]);
 
+  const replyPreview = (m: ChatMessage) => {
+    const author = m.from === "me" ? t("you") : (chat.kind === "group" ? PEOPLE.find((p) => p.id === m.authorId)?.name : chatTitle(chat)) ?? undefined;
+    const text = m.text || (m.images?.length ? `📷 ${t("photo")}` : m.audio ? `🎤 ${t("voiceMessage")}` : m.video ? `📹 ${t("videoMessage")}` : m.file ? `📎 ${m.file.name}` : "");
+    return { author, text };
+  };
+
   const submit = () => {
     const text = draft.trim();
     if (!text) return;
@@ -280,9 +385,19 @@ function Conversation({
       editMessage(chat.id, editingId, text);
       setEditingId(null);
     } else {
-      onSend({ text });
+      onSend({ text, replyTo: replyingTo ? replyPreview(replyingTo) : undefined });
+      setReplyingTo(null);
     }
     setDraft("");
+  };
+
+  const scrollToMessage = (id: string) => {
+    const el = scrollRef.current?.querySelector(`[data-msg="${id}"]`) as HTMLElement | null;
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      el.classList.add("ring-2", "ring-accent");
+      setTimeout(() => el.classList.remove("ring-2", "ring-accent"), 1200);
+    }
   };
 
   const openPicker = (accept: string) => {
@@ -298,7 +413,11 @@ function Conversation({
     const videos = files.filter((f) => f.type.startsWith("video/"));
     const others = files.filter((f) => !f.type.startsWith("image/") && !f.type.startsWith("video/"));
 
-    if (images.length > 0) onSend({ images: images.map((f) => URL.createObjectURL(f)) });
+    // Up to 10 photos per message; extras spill into further messages.
+    for (let i = 0; i < images.length; i += 10) {
+      const batch = images.slice(i, i + 10).map((f) => URL.createObjectURL(f));
+      onSend({ images: batch });
+    }
     videos.forEach((f) => {
       const url = URL.createObjectURL(f);
       void readVideoDuration(url).then((duration) => onSend({ video: { url, duration } }));
@@ -320,16 +439,26 @@ function Conversation({
   const startEdit = (m: ChatMessage) => {
     setDraft(m.text ?? "");
     setEditingId(m.id);
+    setReplyingTo(null);
     setMenuFor(null);
   };
 
-  const toggleSelect = (id: string) =>
+  const toggleSelect = (key: string) =>
     setSelected((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
+
+  // Enter select mode from the message menu. `all` picks every element of the
+  // message (all photos); otherwise just the first element.
+  const startSelect = (m: ChatMessage, all: boolean) => {
+    const keys = elementKeys(m);
+    setSelected(new Set(all ? keys : [keys[0]]));
+    setSelectMode(true);
+    setMenuFor(null);
+  };
 
   const person = chat.kind === "direct" ? chat.person : undefined;
   const subtitle =
@@ -359,7 +488,7 @@ function Conversation({
           </span>
           <button
             onClick={() => {
-              deleteMessages(chat.id, [...selected], "me");
+              deleteSelected(chat.id, [...selected], "me");
               setSelectMode(false);
               setSelected(new Set());
             }}
@@ -410,6 +539,34 @@ function Conversation({
         </header>
       )}
 
+      {/* Pinned message bar */}
+      {!selectMode && chat.pinnedMessageId && (() => {
+        const pinned = chat.messages.find((m) => m.id === chat.pinnedMessageId);
+        if (!pinned) return null;
+        const p = replyPreview(pinned);
+        return (
+          <button
+            onClick={() => scrollToMessage(pinned.id)}
+            className="flex shrink-0 items-center gap-2.5 border-b border-line bg-surface px-3 py-2 text-left"
+          >
+            <span className="h-8 w-0.5 shrink-0 rounded-full bg-accent" />
+            <span className="min-w-0 flex-1">
+              <span className="block text-xs font-semibold text-accent">{t("pinnedMessage")}</span>
+              <span className="block truncate text-sm text-muted">{p.text}</span>
+            </span>
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label={t("unpinMessage")}
+              onClick={(e) => { e.stopPropagation(); pinMessage(chat.id, undefined); }}
+              className="flex size-8 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-surface-3"
+            >
+              <RiCloseLine className="size-5" />
+            </span>
+          </button>
+        );
+      })()}
+
       {/* Messages */}
       <div
         ref={scrollRef}
@@ -424,8 +581,8 @@ function Conversation({
             message={m}
             isGroup={chat.kind === "group"}
             selectMode={selectMode}
-            selected={selected.has(m.id)}
-            onSelectToggle={() => toggleSelect(m.id)}
+            selectedKeys={selected}
+            onToggleKey={toggleSelect}
             onMenu={(rect) => setMenuFor({ message: m, rect })}
             onOpenImages={(images, index) => setViewer({ items: images, index })}
           />
@@ -455,6 +612,19 @@ function Conversation({
                   aria-label={t("cancel")}
                   className="text-muted"
                 >
+                  <RiCloseLine className="size-4" />
+                </button>
+              </div>
+            )}
+
+            {replyingTo && !editingId && (
+              <div className="mb-2 flex items-center gap-2 rounded-xl bg-surface-2 px-3 py-2">
+                <span className="h-8 w-0.5 shrink-0 rounded-full bg-accent" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-semibold text-accent">{t("reply")}</span>
+                  <span className="block truncate text-xs text-muted">{replyPreview(replyingTo).text}</span>
+                </span>
+                <button onClick={() => setReplyingTo(null)} aria-label={t("cancel")} className="text-muted">
                   <RiCloseLine className="size-4" />
                 </button>
               </div>
@@ -506,9 +676,25 @@ function Conversation({
           isGroup={chat.kind === "group"}
           canEdit={menuFor.message.from === "me" && !!menuFor.message.text && !menuFor.message.audio && !menuFor.message.video}
           canForward={!settings.forwarding}
+          elementCount={elementKeys(menuFor.message).length}
+          pinned={chat.pinnedMessageId === menuFor.message.id}
           onClose={() => setMenuFor(null)}
+          onReply={() => {
+            setReplyingTo(menuFor.message);
+            setEditingId(null);
+            setMenuFor(null);
+          }}
           onCopy={() => {
             if (menuFor.message.text) navigator.clipboard?.writeText(menuFor.message.text).catch(() => {});
+            setMenuFor(null);
+          }}
+          onCopyLink={() => {
+            const url = `${window.location.origin}${window.location.pathname}#msg-${menuFor.message.id}`;
+            navigator.clipboard?.writeText(url).catch(() => {});
+            setMenuFor(null);
+          }}
+          onPin={() => {
+            pinMessage(chat.id, chat.pinnedMessageId === menuFor.message.id ? undefined : menuFor.message.id);
             setMenuFor(null);
           }}
           onEdit={() => startEdit(menuFor.message)}
@@ -516,11 +702,8 @@ function Conversation({
             setForwarding(menuFor.message);
             setMenuFor(null);
           }}
-          onSelect={() => {
-            setSelectMode(true);
-            setSelected(new Set([menuFor.message.id]));
-            setMenuFor(null);
-          }}
+          onSelect={() => startSelect(menuFor.message, false)}
+          onSelectAll={() => startSelect(menuFor.message, true)}
           onDelete={(scope) => {
             deleteMessages(chat.id, [menuFor.message.id], scope);
             setMenuFor(null);
@@ -734,26 +917,30 @@ function Bubble({
   message,
   isGroup,
   selectMode,
-  selected,
-  onSelectToggle,
+  selectedKeys,
+  onToggleKey,
   onMenu,
   onOpenImages,
 }: {
   message: ChatMessage;
   isGroup: boolean;
   selectMode: boolean;
-  selected: boolean;
-  onSelectToggle: () => void;
+  selectedKeys: Set<string>;
+  onToggleKey: (key: string) => void;
   onMenu: (rect: DOMRect) => void;
   onOpenImages: (images: string[], index: number) => void;
 }) {
   const t = useT();
   const mine = message.from === "me";
+  const isImages = !!message.images?.length;
+  // Image messages tick photos individually; everything else ticks as a whole.
+  const selected = isImages
+    ? message.images!.some((_, i) => selectedKeys.has(`${message.id}:${i}`))
+    : selectedKeys.has(message.id);
 
   const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (holdTimer.current) clearTimeout(holdTimer.current); }, []);
 
-  // Long-press opens the message menu — unless the press was on a link.
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     if (selectMode) return;
     if ((e.target as HTMLElement).closest("a")) return;
@@ -764,11 +951,13 @@ function Bubble({
     if (holdTimer.current) clearTimeout(holdTimer.current);
   };
 
+  const toggleWhole = () => onToggleKey(message.id);
+
   return (
-    <div className={cx("flex items-center gap-2", mine ? "justify-end" : "justify-start")}>
-      {selectMode && (
+    <div data-msg={message.id} className={cx("flex items-center gap-2 rounded-2xl transition", mine ? "justify-end" : "justify-start")}>
+      {selectMode && !isImages && (
         <button
-          onClick={onSelectToggle}
+          onClick={toggleWhole}
           aria-label={t("selectMessages")}
           className={cx(
             "flex size-5 shrink-0 items-center justify-center rounded-full border",
@@ -780,7 +969,7 @@ function Bubble({
       )}
 
       <div
-        onClick={selectMode ? onSelectToggle : undefined}
+        onClick={selectMode && !isImages ? toggleWhole : undefined}
         onPointerDown={onPointerDown}
         onPointerUp={clearHold}
         onPointerLeave={clearHold}
@@ -791,7 +980,15 @@ function Bubble({
         }}
         className={bubbleShellClass(message, mine, selectMode)}
       >
-        <BubbleBody message={message} mine={mine} isGroup={isGroup} onOpenImages={selectMode ? undefined : onOpenImages} />
+        <BubbleBody
+          message={message}
+          mine={mine}
+          isGroup={isGroup}
+          onOpenImages={onOpenImages}
+          selectMode={selectMode}
+          selectedKeys={selectedKeys}
+          onToggleKey={onToggleKey}
+        />
       </div>
     </div>
   );

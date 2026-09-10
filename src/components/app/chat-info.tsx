@@ -104,7 +104,7 @@ export function ChatInfo({
       <button aria-label={t("close")} onClick={onBack} className="absolute inset-0 cursor-default" />
       <div className="scroll-clean relative flex h-full w-full max-w-[600px] flex-col overflow-y-auto bg-surface shadow-float animate-slide-in-left">
         {/* Header */}
-        <header className="sticky top-0 z-10 flex shrink-0 items-center gap-2 border-b border-line bg-surface/95 px-2 py-2.5 backdrop-blur">
+        <header className="sticky top-0 z-20 flex shrink-0 items-center gap-2 border-b border-line bg-surface px-2 py-2.5">
           <button
             onClick={onBack}
             aria-label={t("back")}
@@ -163,7 +163,7 @@ export function ChatInfo({
 
         {/* Shared media library — sits right after identity in both chat kinds, so
             the tabs land in the same place whether or not there's a member list. */}
-        <div className="sticky top-[57px] z-10 flex gap-1 overflow-x-auto border-y border-line bg-surface/95 px-3 py-2 backdrop-blur">
+        <div className="flex gap-1 overflow-x-auto border-y border-line bg-surface px-3 py-2">
           {tabs.map((tb) => (
             <button
               key={tb.key}

@@ -55,6 +55,8 @@ export interface ChatMessage {
   forwardedFrom?: string;
   /** For disappearing messages — epoch ms when it self-destructs. */
   expiresAt?: number;
+  /** The message this one is replying to (author + short preview). */
+  replyTo?: { author?: string; text: string };
 }
 
 export interface Chat {
@@ -68,6 +70,14 @@ export interface Chat {
   avatar?: string;
   messages: ChatMessage[];
   unread: number;
+  /** Pinned to the top of the chat list. */
+  pinned?: boolean;
+  /** Notifications muted. */
+  muted?: boolean;
+  /** Removed from the list — history is kept so it can come back. */
+  deleted?: boolean;
+  /** Id of the message pinned to the top of the conversation. */
+  pinnedMessageId?: string;
 }
 
 export interface PostComment {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { RiArrowLeftSLine, RiArrowRightSLine, RiCloseLine, RiDownload2Line } from "@remixicon/react";
 import { useT } from "@/lib/settings-context";
@@ -34,6 +34,32 @@ export function MediaViewer({
   const many = items.length > 1;
 
   const go = (delta: number) => onIndex((index + delta + items.length) % items.length);
+
+  // Horizontal swipe to move between items (touch/drag). A short move that
+  // doesn't cross the threshold is treated as a tap and closes the viewer.
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const [dragX, setDragX] = useState(0);
+  const onPointerDown = (e: React.PointerEvent) => {
+    swipe.current = { x: e.clientX, y: e.clientY };
+    setDragX(0);
+  };
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!swipe.current || !many) return;
+    setDragX(e.clientX - swipe.current.x);
+  };
+  const onPointerUp = (e: React.PointerEvent): boolean => {
+    const start = swipe.current;
+    swipe.current = null;
+    setDragX(0);
+    if (!start) return false;
+    const dx = e.clientX - start.x;
+    const dy = e.clientY - start.y;
+    if (many && Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+      go(dx < 0 ? 1 : -1);
+      return true; // consumed as a swipe, not a tap
+    }
+    return false;
+  };
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -91,8 +117,16 @@ export function MediaViewer({
 
       <button
         aria-label={t("close")}
-        onClick={onClose}
-        className="relative flex min-h-0 flex-1 items-center justify-center px-3 pb-6"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={(e) => {
+          if (!onPointerUp(e)) onClose();
+        }}
+        onPointerCancel={() => {
+          swipe.current = null;
+          setDragX(0);
+        }}
+        className="relative flex min-h-0 flex-1 touch-pan-y items-center justify-center px-3 pb-6"
       >
         {current.kind === "video" ? (
           <video
@@ -100,6 +134,7 @@ export function MediaViewer({
             controls
             autoPlay
             className="max-h-full max-w-full rounded-lg"
+            style={{ transform: `translateX(${dragX}px)` }}
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
@@ -107,7 +142,9 @@ export function MediaViewer({
           <img
             src={current.src}
             alt=""
+            draggable={false}
             className="max-h-full max-w-full rounded-lg object-contain"
+            style={{ transform: `translateX(${dragX}px)` }}
             onClick={(e) => e.stopPropagation()}
           />
         )}

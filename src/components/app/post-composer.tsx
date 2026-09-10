@@ -34,13 +34,14 @@ type Panel = "camera" | "poll" | "location" | "gif" | null;
  * GIF. With `repostOf` set it becomes a quote-repost: the original is embedded
  * and publishing adds your comment on top of it.
  */
-export function PostComposerDialog({ onClose, repostOf }: { onClose: () => void; repostOf?: Post }) {
+export function PostComposerDialog({ onClose, repostOf, editing }: { onClose: () => void; repostOf?: Post; editing?: Post }) {
   const { user } = useAuth();
-  const { addPost, repost } = useStore();
+  const { addPost, repost, editPost } = useStore();
   const t = useT();
   const isRepost = !!repostOf;
+  const isEditing = !!editing;
 
-  const [text, setText] = useState("");
+  const [text, setText] = useState(editing?.text ?? "");
   const [images, setImages] = useState<string[]>([]);
   const [location, setLocation] = useState("");
   const [poll, setPoll] = useState<Poll | null>(null);
@@ -49,11 +50,13 @@ export function PostComposerDialog({ onClose, repostOf }: { onClose: () => void;
   const fileRef = useRef<HTMLInputElement>(null);
 
   const pollReady = poll ? poll.options.filter((o) => o.text.trim()).length >= 2 : true;
-  const canPublish = (isRepost || !!(text.trim() || images.length || poll)) && pollReady;
+  const canPublish = (isRepost || isEditing || !!(text.trim() || images.length || poll)) && pollReady;
 
   const publish = () => {
     if (!canPublish) return;
-    if (repostOf) {
+    if (editing) {
+      editPost(editing.id, text.trim());
+    } else if (repostOf) {
       repost(repostOf, text.trim());
     } else {
       addPost({
@@ -98,13 +101,13 @@ export function PostComposerDialog({ onClose, repostOf }: { onClose: () => void;
           >
             <RiCloseLine className="size-5" />
           </button>
-          <h2 className="flex-1 text-base font-semibold text-ink">{isRepost ? t("quoteRepost") : t("newPost")}</h2>
+          <h2 className="flex-1 text-base font-semibold text-ink">{isEditing ? t("editPost") : isRepost ? t("quoteRepost") : t("newPost")}</h2>
           <button
             onClick={publish}
             disabled={!canPublish}
             className="rounded-full bg-accent px-4 py-2 text-sm font-semibold text-white transition hover:bg-accent-strong disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {t("publish")}
+            {isEditing ? t("save") : t("publish")}
           </button>
         </div>
 
@@ -116,7 +119,7 @@ export function PostComposerDialog({ onClose, repostOf }: { onClose: () => void;
               value={text}
               maxLength={LIMIT}
               onChange={(e) => setText(e.target.value)}
-              rows={isRepost ? 2 : 4}
+              rows={isRepost || isEditing ? 3 : 4}
               placeholder={isRepost ? t("addThoughts") : t("whatsHappening")}
               className="min-h-16 flex-1 resize-none bg-transparent text-[15px] leading-relaxed text-ink outline-none placeholder:text-faint"
             />
@@ -202,7 +205,7 @@ export function PostComposerDialog({ onClose, repostOf }: { onClose: () => void;
         </div>
 
         {/* Toolbar — a quote-repost only needs your words */}
-        <div className={cx("border-t border-line p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]", isRepost && "hidden")}>
+        <div className={cx("border-t border-line p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]", (isRepost || isEditing) && "hidden")}>
           <input
             ref={fileRef}
             type="file"

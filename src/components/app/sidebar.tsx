@@ -1,10 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import {
+  RiAddLine,
   RiBookmarkLine,
   RiChat3Line,
+  RiCheckLine,
   RiCloseLine,
   RiCustomerServiceLine,
+  RiExpandUpDownLine,
   RiHome5Line,
   RiLogoutBoxRLine,
   RiMoonLine,
@@ -13,12 +17,11 @@ import {
   RiSidebarFoldLine,
   RiSidebarUnfoldLine,
   RiSunLine,
-  RiUserSmileLine,
 } from "@remixicon/react";
 import { Avatar } from "@/components/ui/avatar";
 import { ToggleVisual } from "@/components/ui/toggle";
 import { emailFor } from "@/lib/accounts";
-import { VoyzenMark } from "@/components/logo";
+import { useAuth } from "@/lib/auth-context";
 import type { VoyzenUser } from "@/lib/auth-context";
 import { useTheme } from "@/lib/theme-context";
 import { useT } from "@/lib/settings-context";
@@ -29,7 +32,7 @@ import type { AppTab } from "./app-shell";
 /** Drawer width in px — shared with the swipe gesture so the drag maps 1:1. */
 export const DRAWER_WIDTH = 320;
 
-type RowKey = AppTab | "profile" | "history";
+type RowKey = AppTab | "history";
 
 interface Row {
   key: RowKey;
@@ -46,6 +49,7 @@ interface SidebarProps {
   onOpenHistory: () => void;
   onOpenSettings: () => void;
   onSignOut: () => void;
+  onAddAccount: () => void;
   unread: { chat: number };
 }
 
@@ -58,6 +62,7 @@ function Panel({
   onOpenHistory,
   onOpenSettings,
   onSignOut,
+  onAddAccount,
   unread,
   collapsed = false,
   onToggleCollapsed,
@@ -70,20 +75,25 @@ function Panel({
   variant: "drawer" | "static";
 }) {
   const { theme, toggle } = useTheme();
+  const { accounts, switchAccount } = useAuth();
   const t = useT();
+  const [switcherOpen, setSwitcherOpen] = useState(false);
 
   const rows: Row[] = [
     { key: "home", labelKey: "home", icon: RiHome5Line },
     { key: "search", labelKey: "searchTab", icon: RiSearchLine },
     { key: "chat", labelKey: "messages", icon: RiChat3Line, badge: unread.chat },
     { key: "history", labelKey: "history", icon: RiBookmarkLine },
-    { key: "profile", labelKey: "profile", icon: RiUserSmileLine },
   ];
 
   const go = (key: RowKey) => {
-    if (key === "profile") onOpenProfile();
-    else if (key === "history") onOpenHistory();
+    if (key === "history") onOpenHistory();
     else onNavigate(key);
+    onClose?.();
+  };
+
+  const openProfile = () => {
+    onOpenProfile();
     onClose?.();
   };
 
@@ -98,14 +108,21 @@ function Panel({
       style={variant === "static" && !collapsed ? { width: DRAWER_WIDTH } : undefined}
     >
       <div className="flex min-h-0 flex-col gap-4">
-        {/* Brand + collapse / close */}
+        {/* Brand row: avatar (→ profile) + collapse / close */}
         <div
           className={cx(
             "relative flex items-center",
             collapsed ? "flex-col gap-3" : "justify-between",
           )}
         >
-          <VoyzenMark className={collapsed ? "size-9" : "size-11"} />
+          <button
+            onClick={openProfile}
+            aria-label={t("profile")}
+            title={collapsed ? t("profile") : undefined}
+            className="shrink-0 rounded-full transition hover:opacity-80 active:scale-95"
+          >
+            <Avatar src={user.avatar} name={user.name} size={collapsed ? 40 : 44} online />
+          </button>
           {!collapsed && (
             <span className="pointer-events-none absolute left-1/2 -translate-x-1/2 text-lg font-bold text-ink">
               {t("menu")}
@@ -136,23 +153,65 @@ function Panel({
           )}
         </div>
 
-        {/* User card → profile */}
-        <button
-          onClick={() => go("profile")}
-          title={collapsed ? user.name : undefined}
-          className={cx(
-            "flex items-center rounded-2xl bg-surface-2 text-left transition hover:bg-surface-3",
-            collapsed ? "justify-center p-2" : "gap-3 p-3",
-          )}
-        >
-          <Avatar src={user.avatar} name={user.name} size={44} online />
-          {!collapsed && (
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-ink">{user.name}</p>
-              <p className="truncate text-xs text-muted">{emailFor(user.handle)}</p>
-            </div>
-          )}
-        </button>
+        {/* User card → account switcher (not the profile) */}
+        {!collapsed && (
+          <div>
+            <button
+              onClick={() => setSwitcherOpen((v) => !v)}
+              aria-expanded={switcherOpen}
+              className="flex w-full items-center gap-3 rounded-2xl bg-surface-2 p-3 text-left transition hover:bg-surface-3"
+            >
+              <Avatar src={user.avatar} name={user.name} size={44} online />
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-semibold text-ink">{user.name}</p>
+                <p className="truncate text-xs text-muted">{emailFor(user.handle)}</p>
+              </div>
+              <RiExpandUpDownLine className={cx("size-5 shrink-0 text-muted transition", switcherOpen && "text-accent")} />
+            </button>
+
+            {switcherOpen && (
+              <div className="mt-1.5 overflow-hidden rounded-2xl border border-line bg-surface animate-slide-up-in">
+                <p className="px-3 pb-1 pt-2.5 text-xs font-semibold uppercase tracking-wide text-muted">
+                  {t("switchAccount")}
+                </p>
+                {accounts.map((a) => {
+                  const active = a.handle === user.handle;
+                  return (
+                    <button
+                      key={a.handle}
+                      onClick={() => {
+                        if (!active) switchAccount(a.handle);
+                        setSwitcherOpen(false);
+                        onClose?.();
+                      }}
+                      className="flex w-full items-center gap-3 px-3 py-2.5 text-left transition hover:bg-surface-2"
+                    >
+                      <Avatar src={a.avatar} name={a.name} size={36} online={active} />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-ink">{a.name}</p>
+                        <p className="truncate text-xs text-muted">{emailFor(a.handle)}</p>
+                      </div>
+                      {active && <RiCheckLine className="size-5 shrink-0 text-accent" />}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => {
+                    setSwitcherOpen(false);
+                    onClose?.();
+                    onAddAccount();
+                  }}
+                  className="flex w-full items-center gap-3 border-t border-line px-3 py-3 text-left text-sm font-medium text-accent transition hover:bg-surface-2"
+                >
+                  <span className="flex size-9 items-center justify-center rounded-full bg-accent-soft">
+                    <RiAddLine className="size-5" />
+                  </span>
+                  {t("addAccount")}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         <nav className="flex flex-col gap-1">
           {rows.map((row) => {

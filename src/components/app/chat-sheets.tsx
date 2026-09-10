@@ -3,16 +3,24 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
+  RiChat1Line,
+  RiCheckDoubleLine,
   RiCheckLine,
   RiCloseLine,
   RiDeleteBin6Line,
   RiFlagLine,
   RiForbidLine,
-  RiImage2Line,
+  RiLinksLine,
+  RiNotification3Line,
+  RiNotificationOffLine,
+  RiPencilLine,
+  RiPushpin2Line,
+  RiReplyLine,
   RiScreenshot2Line,
   RiShareForwardLine,
   RiSpam2Line,
   RiTimer2Line,
+  RiUnpinLine,
 } from "@remixicon/react";
 import { Avatar } from "@/components/ui/avatar";
 import { ToggleVisual } from "@/components/ui/toggle";
@@ -325,11 +333,17 @@ export function MessageActionMenu({
   isGroup,
   canEdit,
   canForward,
+  elementCount,
+  pinned,
   onClose,
+  onReply,
   onCopy,
+  onCopyLink,
+  onPin,
   onEdit,
   onForward,
   onSelect,
+  onSelectAll,
   onDelete,
 }: {
   message: ChatMessage;
@@ -338,13 +352,20 @@ export function MessageActionMenu({
   isGroup: boolean;
   canEdit: boolean;
   canForward: boolean;
+  elementCount: number;
+  pinned: boolean;
   onClose: () => void;
-  onCopy: () => void;
+  onReply: () => void;
+  onCopy?: () => void;
+  onCopyLink: () => void;
+  onPin: () => void;
   onEdit: () => void;
   onForward: () => void;
   onSelect: () => void;
+  onSelectAll: () => void;
   onDelete: (scope: "me" | "everyone") => void;
 }) {
+  void onCopy;
   const t = useT();
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
@@ -404,27 +425,137 @@ export function MessageActionMenu({
       <div
         ref={menuRef}
         role="menu"
+        style={{ top: pos.top, left: pos.left, transformOrigin: mine ? "top right" : "top left" }}
         className={cx(
-          "fixed w-52 overflow-hidden rounded-2xl border border-line bg-surface shadow-float transition-opacity duration-150",
-          pos.ready ? "opacity-100" : "opacity-0",
+          "fixed w-60 overflow-hidden rounded-2xl border border-line bg-surface shadow-float transition duration-150",
+          pos.ready ? "scale-100 opacity-100" : "scale-95 opacity-0",
         )}
-        style={{ top: pos.top, left: pos.left }}
       >
         {!deleteOpen ? (
           <>
-            {canEdit && <Row icon={<RiCheckLine className="size-5 text-muted" />} label={t("editMessage")} onClick={onEdit} />}
-            <Row icon={<RiImage2Line className="size-5 text-muted" />} label={t("copyText")} onClick={onCopy} />
+            <Row icon={<RiReplyLine className="size-5 text-muted" />} label={t("reply")} onClick={onReply} />
+            {canEdit && <Row icon={<RiPencilLine className="size-5 text-muted" />} label={t("editMessage")} onClick={onEdit} />}
+            <Row
+              icon={pinned ? <RiUnpinLine className="size-5 text-muted" /> : <RiPushpin2Line className="size-5 text-muted" />}
+              label={pinned ? t("unpinMessage") : t("pinMessage")}
+              onClick={onPin}
+            />
+            <Row icon={<RiLinksLine className="size-5 text-muted" />} label={t("copyLink")} onClick={onCopyLink} />
             {canForward && (
               <Row icon={<RiShareForwardLine className="size-5 text-muted" />} label={t("forwardMessage")} onClick={onForward} />
             )}
-            <Row icon={<RiCheckLine className="size-5 text-muted" />} label={t("selectMessages")} onClick={onSelect} />
             <Row danger icon={<RiDeleteBin6Line className="size-5" />} label={t("deleteMessage")} onClick={() => setDeleteOpen(true)} />
+
+            <div className="my-1 h-px bg-line" />
+
+            <Row icon={<RiCheckLine className="size-5 text-muted" />} label={t("selectMessages")} onClick={onSelect} />
+            {elementCount > 1 && (
+              <Row
+                icon={<RiCheckDoubleLine className="size-5 text-muted" />}
+                label={`${t("selectAll")} ${elementCount}`}
+                onClick={onSelectAll}
+              />
+            )}
           </>
         ) : (
           <>
             {canEdit && <Row danger label={t("deleteForEveryone")} onClick={() => onDelete("everyone")} />}
             <Row danger label={t("deleteForMe")} onClick={() => onDelete("me")} />
             <Row label={t("cancel")} onClick={() => setDeleteOpen(false)} />
+          </>
+        )}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * The chat-list context menu (long-press / right-click a chat): mark unread,
+ * pin, mute, delete. Positioned under the row over a blurred backdrop.
+ */
+export function ChatListMenu({
+  chat,
+  rect,
+  onClose,
+  onPin,
+  onMute,
+  onMarkUnread,
+  onDelete,
+}: {
+  chat: Chat;
+  rect: DOMRect;
+  onClose: () => void;
+  onPin: () => void;
+  onMute: () => void;
+  onMarkUnread: () => void;
+  onDelete: () => void;
+}) {
+  const t = useT();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  const [confirm, setConfirm] = useState(false);
+
+  const menuRef = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: rect.bottom + 6, left: rect.left + 12, ready: false });
+  useLayoutEffect(() => {
+    const el = menuRef.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const margin = 12;
+    let top = rect.bottom + 6;
+    if (top + r.height > window.innerHeight - margin) top = rect.top - 6 - r.height;
+    top = Math.max(margin, Math.min(top, window.innerHeight - r.height - margin));
+    const left = Math.max(margin, Math.min(rect.left + 12, window.innerWidth - r.width - margin));
+    setPos({ top, left, ready: true });
+  }, [rect, mounted]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  if (!mounted) return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[85]">
+      <button aria-label={t("close")} onClick={onClose} className="absolute inset-0 cursor-default bg-black/10 backdrop-blur-md animate-fade-in" />
+      <div
+        ref={menuRef}
+        role="menu"
+        style={{ top: pos.top, left: pos.left }}
+        className={cx(
+          "fixed w-60 overflow-hidden rounded-2xl border border-line bg-surface shadow-float transition duration-150",
+          pos.ready ? "scale-100 opacity-100" : "scale-95 opacity-0",
+        )}
+      >
+        {confirm ? (
+          <div className="p-3">
+            <p className="px-1 py-2 text-center text-sm text-ink">{t("deleteChatQ")}</p>
+            <div className="mt-1 flex gap-2">
+              <button onClick={() => setConfirm(false)} className="h-9 flex-1 rounded-xl border border-line text-sm font-medium text-ink transition hover:bg-surface-3">
+                {t("cancel")}
+              </button>
+              <button onClick={onDelete} className="h-9 flex-1 rounded-xl bg-danger text-sm font-semibold text-white transition hover:brightness-110">
+                {t("deleteChat")}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <Row icon={<RiChat1Line className="size-5 text-muted" />} label={t("markUnread")} onClick={onMarkUnread} />
+            <Row
+              icon={chat.pinned ? <RiUnpinLine className="size-5 text-muted" /> : <RiPushpin2Line className="size-5 text-muted" />}
+              label={chat.pinned ? t("unpinChat") : t("pinChat")}
+              onClick={onPin}
+            />
+            <Row
+              icon={chat.muted ? <RiNotification3Line className="size-5 text-muted" /> : <RiNotificationOffLine className="size-5 text-muted" />}
+              label={chat.muted ? t("enableNotifications") : t("disableNotifications")}
+              onClick={onMute}
+            />
+            <Row danger icon={<RiDeleteBin6Line className="size-5" />} label={t("deleteChat")} onClick={() => setConfirm(true)} />
           </>
         )}
       </div>

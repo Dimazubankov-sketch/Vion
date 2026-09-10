@@ -6,10 +6,21 @@ import { Avatar } from "@/components/ui/avatar";
 import { CropDialog } from "@/components/ui/crop-dialog";
 import { useAuth, type VoyzenUser } from "@/lib/auth-context";
 import { useT } from "@/lib/settings-context";
+import { cx } from "@/utils/cx";
 
 const BIO_LIMIT = 240;
 
-/** Edit name, bio, location, website, avatar and cover in one sheet. */
+/** Split a stored full name into first / last for the two-field editor. */
+function splitName(name: string): { first: string; last: string } {
+  const parts = name.trim().split(/\s+/);
+  return { first: parts[0] ?? "", last: parts.slice(1).join(" ") };
+}
+
+/**
+ * Edit profile. Fields run in order: first + last name, then bio, website and
+ * city. There's no username field — the identifier is the @voidops.ru email,
+ * which can't just be edited here.
+ */
 export function EditProfileDialog({
   user,
   onClose,
@@ -20,16 +31,17 @@ export function EditProfileDialog({
   const { updateUser } = useAuth();
   const t = useT();
 
-  const [name, setName] = useState(user.name);
+  const initial = splitName(user.name);
+  const [first, setFirst] = useState(initial.first);
+  const [last, setLast] = useState(initial.last);
   const [bio, setBio] = useState(user.bio ?? "");
-  const [location, setLocation] = useState(user.location ?? "");
   const [website, setWebsite] = useState(user.website ?? "");
+  const [location, setLocation] = useState(user.location ?? "");
   const [avatar, setAvatar] = useState(user.avatar);
   const [banner, setBanner] = useState(user.banner);
 
   const avatarInput = useRef<HTMLInputElement>(null);
   const bannerInput = useRef<HTMLInputElement>(null);
-  // The picked file, shown in the crop dialog until the user confirms.
   const [cropping, setCropping] = useState<{ src: string; field: "avatar" | "banner" } | null>(null);
 
   const pick = (file: File | undefined, field: "avatar" | "banner") => {
@@ -37,12 +49,14 @@ export function EditProfileDialog({
     setCropping({ src: URL.createObjectURL(file), field });
   };
 
+  const fullName = [first.trim(), last.trim()].filter(Boolean).join(" ");
+
   const save = () => {
     updateUser({
-      name: name.trim() || user.name,
+      name: fullName || user.name,
       bio: bio.trim(),
-      location: location.trim(),
       website: website.trim(),
+      location: location.trim(),
       avatar,
       banner,
     });
@@ -75,22 +89,10 @@ export function EditProfileDialog({
         </div>
 
         <div className="scroll-clean min-h-0 flex-1 overflow-y-auto">
-          <input
-            ref={avatarInput}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(e) => pick(e.target.files?.[0], "avatar")}
-          />
-          <input
-            ref={bannerInput}
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={(e) => pick(e.target.files?.[0], "banner")}
-          />
+          <input ref={avatarInput} type="file" accept="image/*" hidden onChange={(e) => pick(e.target.files?.[0], "avatar")} />
+          <input ref={bannerInput} type="file" accept="image/*" hidden onChange={(e) => pick(e.target.files?.[0], "banner")} />
 
-          {/* Cover + avatar */}
+          {/* Cover with a change-cover button */}
           <div className="relative h-32 w-full bg-gradient-to-br from-accent to-accent-strong">
             {banner && (
               // eslint-disable-next-line @next/next/no-img-element
@@ -98,20 +100,21 @@ export function EditProfileDialog({
             )}
             <button
               onClick={() => bannerInput.current?.click()}
-              className="absolute right-3 top-3 flex items-center gap-1.5 rounded-full bg-black/40 px-3 py-2 text-xs font-medium text-white backdrop-blur transition hover:bg-black/60"
+              aria-label={t("cover")}
+              className="absolute right-3 top-3 flex size-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur transition hover:bg-black/60"
             >
-              <RiImageAddLine className="size-4" />
-              {t("cover")}
+              <RiImageAddLine className="size-5" />
             </button>
           </div>
 
-          <div className="px-4">
+          {/* Avatar overlapping the cover */}
+          <div className="px-5">
             <button
               onClick={() => avatarInput.current?.click()}
               aria-label={t("changePhoto")}
               className="group relative -mt-10 inline-flex rounded-full border-4 border-surface"
             >
-              <Avatar src={avatar} name={name} size={80} />
+              <Avatar src={avatar} name={fullName || user.name} size={80} />
               <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/45 opacity-0 transition group-hover:opacity-100">
                 <RiCameraLine className="size-6 text-white" />
               </span>
@@ -121,16 +124,17 @@ export function EditProfileDialog({
             </button>
 
             <div className="mt-4 flex flex-col gap-4 pb-4">
-              <Field label={t("name")} value={name} onChange={setName} />
+              {/* Name + surname */}
+              <div className="grid grid-cols-2 gap-3">
+                <Field label={t("firstName")} value={first} onChange={setFirst} placeholder="Ada" />
+                <Field label={t("lastName")} value={last} onChange={setLast} placeholder="Lovelace" />
+              </div>
 
+              {/* Bio */}
               <div className="flex flex-col gap-1.5">
                 <div className="flex items-baseline justify-between">
-                  <label className="text-sm font-medium text-ink" htmlFor="bio">
-                    {t("bio")}
-                  </label>
-                  <span className="text-xs text-faint">
-                    {bio.length}/{BIO_LIMIT}
-                  </span>
+                  <label className="text-sm font-medium text-ink" htmlFor="bio">{t("bio")}</label>
+                  <span className="text-xs text-faint">{bio.length}/{BIO_LIMIT}</span>
                 </div>
                 <textarea
                   id="bio"
@@ -143,8 +147,11 @@ export function EditProfileDialog({
                 />
               </div>
 
-              <Field label={t("location")} value={location} onChange={setLocation} placeholder="Los Angeles, CA" />
+              {/* Website */}
               <Field label={t("website")} value={website} onChange={setWebsite} placeholder="voyzen.app" />
+
+              {/* City */}
+              <Field label={t("location")} value={location} onChange={setLocation} placeholder="Los Angeles, CA" />
             </div>
           </div>
         </div>
@@ -193,7 +200,7 @@ function Field({
   placeholder?: string;
 }) {
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className={cx("flex flex-col gap-1.5")}>
       <label className="text-sm font-medium text-ink">{label}</label>
       <input
         value={value}

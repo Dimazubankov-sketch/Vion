@@ -37,8 +37,8 @@ export function Feed({ leading }: { leading?: ReactNode }) {
   const showSuggestions = tab === "following" && !followsAnyone;
 
   return (
-    <div className="relative h-full">
-      <div className="scroll-clean h-full overflow-y-auto bg-canvas">
+    <div className="relative flex h-full flex-col">
+      <div className="scroll-clean min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-y-contain bg-canvas">
         {/* Header: avatar (mobile) + For you / Following */}
         <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-line bg-canvas/90 px-3 py-2 backdrop-blur">
           {leading}
